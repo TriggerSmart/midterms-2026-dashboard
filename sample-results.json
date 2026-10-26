@@ -1,0 +1,19 @@
+{
+  "updatedAt": "2026-11-03T23:15:00Z",
+  "chamber": {
+    "house": { "dem": 0, "rep": 0, "other": 0, "called": 0 },
+    "senate": { "dem": 0, "rep": 0, "other": 0, "called": 0 }
+  },
+  "results": [
+    {
+      "state": "NE",
+      "leader": "TOSS",
+      "demPct": null,
+      "repPct": null,
+      "reporting": 0,
+      "called": false,
+      "source": "imported",
+      "note": "Template record — replace with verified election-night data."
+    }
+  ]
+}

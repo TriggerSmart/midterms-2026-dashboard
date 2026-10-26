@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>2026 Midterms Command Center</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true"><span class="brand-blue"></span><span class="brand-red"></span></div>
+      <div>
+        <div class="brand-kicker">ELECTION NIGHT OSINT</div>
+        <div class="brand-title">2026 MIDTERMS COMMAND CENTER</div>
+      </div>
+    </div>
+    <nav class="main-nav" aria-label="Primary">
+      <a href="#dashboard" data-route="dashboard">Dashboard</a>
+      <a href="#map" data-route="map">Live Map</a>
+      <a href="#races" data-route="races">Race Board</a>
+      <a href="#sources" data-route="sources">Sources</a>
+      <a href="#data" data-route="data">Data Control</a>
+    </nav>
+    <div class="top-actions">
+      <button class="btn btn-ghost" id="refresh-news-btn" type="button">Refresh News</button>
+      <button class="btn btn-accent" id="open-video-panel-btn" type="button">+ Video</button>
+    </div>
+  </header>
+
+  <div class="statusbar">
+    <span class="status-dot" id="results-status-dot"></span>
+    <span id="results-status-text">Results: reference/manual mode</span>
+    <span class="status-divider">•</span>
+    <span id="live-clock">--:--:--</span>
+    <span class="status-divider">•</span>
+    <span id="countdown">Loading election clock…</span>
+    <span class="status-divider">•</span>
+    <span id="next-poll">Poll close schedule ready</span>
+  </div>
+
+  <main id="page-root" class="page-root" tabindex="-1"></main>
+
+  <aside id="video-dock-left" class="video-dock video-dock-left" aria-label="Left video dock"></aside>
+  <aside id="video-dock-right" class="video-dock video-dock-right" aria-label="Right video dock"></aside>
+  <div id="video-layer" class="video-layer" aria-live="polite"></div>
+
+  <div id="add-video-panel" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="video-panel-title">
+    <section class="modal-card video-panel-card">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow">PERSISTENT PLAYER WORKSPACE</div>
+          <h2 id="video-panel-title">Add or manage video feeds</h2>
+        </div>
+        <button class="icon-btn" id="close-video-panel-btn" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="modal-grid">
+        <div class="panel-section">
+          <h3>Add any YouTube video</h3>
+          <label class="field-label" for="video-url-input">YouTube URL or 11-character video ID</label>
+          <input id="video-url-input" class="text-input" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+          <label class="field-label" for="video-title-input">Title (optional)</label>
+          <input id="video-title-input" class="text-input" placeholder="My election-night feed" autocomplete="off" />
+          <div class="button-row">
+            <button id="add-video-right-btn" class="btn btn-accent" type="button">Add Dock Right</button>
+            <button id="add-video-float-btn" class="btn btn-ghost" type="button">Add Floating</button>
+          </div>
+          <p class="help-text">Floating windows are draggable and resizable. Docked players stay visible when you switch dashboard pages.</p>
+          <div id="file-video-warning" class="local-warning hidden"><strong>Direct-file mode:</strong> YouTube may reject embedded playback because <code>file://</code> pages cannot provide the HTTP referrer YouTube expects. Run <code>node local-server.js</code> from this folder for reliable docked playback; no external hosting or database is required.</div>
+        </div>
+        <div class="panel-section">
+          <h3>Network live presets</h3>
+          <div id="video-preset-list" class="preset-list"></div>
+        </div>
+      </div>
+      <div class="panel-section compact-top">
+        <h3>Active players</h3>
+        <div id="active-video-list" class="active-video-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <div id="ticker" class="ticker" aria-label="Election news ticker">
+    <div class="ticker-label">LIVE WIRE</div>
+    <div class="ticker-viewport"><div id="ticker-track" class="ticker-track"></div></div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

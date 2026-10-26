@@ -1,0 +1,1 @@
+{"name":"2026-midterms-command-center","private":true,"type":"commonjs","scripts":{"test":"node --test tests/core.test.js"}}
