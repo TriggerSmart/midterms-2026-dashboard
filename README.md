@@ -1,145 +1,141 @@
 # 2026 Midterms Command Center
 
-A portable election-night OSINT dashboard for the **November 3, 2026 U.S. midterms**. It uses plain **HTML + CSS + JavaScript**, has **no database**, no build step, no account/login, and requires no API key and does not require you to supply an election-results datasource.
+A GitHub Pages-compatible election-night OSINT dashboard for the **November 3, 2026 U.S. midterms**. The published site is plain **HTML + CSS + JavaScript** with **no database, no API key, no login, and no server process**.
 
-## Start it
+## GitHub Pages deployment
 
-### Windows
-Double-click:
+1. Create a GitHub repository and upload/push this entire folder, including `.github/workflows/pages.yml`.
+2. In the repository, open **Settings → Pages**.
+3. Under **Build and deployment → Source**, choose **GitHub Actions**.
+4. Push to `main` (or `master`) or run the workflow manually from **Actions → Deploy Midterms Command Center to GitHub Pages → Run workflow**.
+5. GitHub builds and deploys the dashboard. All browser asset/data URLs are repository-relative, so project Pages URLs such as `https://USERNAME.github.io/REPOSITORY/` work without changing paths.
 
-`START-MIDTERMS-DASHBOARD.bat`
+The included workflow runs the tests, refreshes the static election-data mirror and geographic maps, builds `_site`, and deploys it with the official GitHub Pages actions.
 
-### Any platform with Node.js 18+
+## Automatic election data — no datasource hookup required
 
-```bash
-node local-server.js
-```
+The site uses two complementary free/keyless paths.
 
-The dashboard opens at `http://127.0.0.1:8765/`. This is localhost only: it is not externally hosted and is not exposed to the internet.
+### Open America — direct browser polling
 
-Use the launcher rather than double-clicking `index.html`. The local launcher is what makes the automatic result feeds, geographic map geometry, caching, and reliable YouTube embeds work together without CORS/API-key problems.
+Open America's election JSON explicitly allows cross-origin browser requests. The dashboard polls its House, Senate, and governor feeds directly when automatic results are enabled:
 
-## Automatic election data — no setup required
+- `https://openamerica.io/elections/results.json?year=2026&office=House`
+- `https://openamerica.io/elections/results.json?year=2026&office=Senate`
+- `https://openamerica.io/elections/results.json?year=2026&office=Governor`
 
-The dashboard starts with automatic results enabled and refreshes every 60 seconds by default.
+This gives the static GitHub Pages site a direct live-results path without a proxy, key, or database.
 
-### Primary: watch.vote
+### watch.vote — GitHub Actions static mirror
 
-The local gateway requests the public/keyless 2026 endpoints for:
+watch.vote provides public/keyless 2026 results, but its result endpoints intentionally do **not** send browser CORS headers. A GitHub Pages browser therefore cannot fetch those endpoints directly.
+
+The included Pages workflow solves that without any user configuration: GitHub Actions fetches watch.vote server-side, normalizes the results, writes `assets/data/live-results.json`, and deploys that JSON with the site. On **November 3–5, 2026**, the scheduled workflow is configured for approximately five-minute refresh attempts. GitHub scheduled workflows may be delayed, so the UI also uses Open America's direct CORS feed between mirror deployments.
+
+Mirrored watch.vote routes:
 
 - Senate: `https://watch.vote/api/elections/2026/results?office=senate`
 - House: `https://watch.vote/api/elections/2026/results?office=house`
 - Governors: `https://watch.vote/api/elections/2026/results?office=governors`
 
-watch.vote documents these as 2026 election-result routes. Its result presentation is based on counts from official state election authorities, and a race is not treated as won merely because a candidate is leading; the dashboard consumes the provider's call/winner state when present.
+The site never embeds an AP or Decision Desk HQ credential. AP Elections API and DDHQ's professional results API remain Source Center references because they require authenticated access.
 
-### Cross-check: Open America
+## Geographic maps
 
-The local gateway also requests Open America's free, keyless JSON endpoints for House, Senate, and governor results. Open America says its adapters read machine-readable feeds from official state election offices. Coverage is not universal, so this source is used as a secondary/cross-check rather than the sole national backbone.
+The map is a real geographic SVG map, not a square/cartogram layout.
 
-### AP and Decision Desk HQ
+- State/Senate/Governor layers use U.S. Census Bureau state GeoJSON.
+- House uses the 2026 congressional-district GeoJSON snapshot exposed by watch.vote/Census.
+- The deployment workflow downloads both geometry files into `assets/data/` before publishing.
+- All map reads in the browser are repository-relative, so they work from a GitHub Pages project subdirectory.
 
-They remain in the Source Center for verification, but the dashboard does **not** scrape undocumented/private API endpoints. AP Elections API access requires an API key, while Decision Desk HQ's results API uses authenticated OAuth/Bearer access. Neither credential is needed for this dashboard.
+Available layers:
 
-### Fail-safe behavior
+- Senate
+- U.S. House districts
+- Governors
+- State summary
 
-The localhost gateway keeps an in-memory and small disk cache in `.midterms-cache/`. If an upstream service is briefly unavailable, it can serve the last good response and marks provider health as stale rather than replacing results with invented values.
+Click a state or district to inspect candidate totals, reporting percentage, race status, source authority, provider, and update time.
 
-## Actual geographic maps
+## Live video workspace
 
-The old square/cartogram state display has been replaced.
-
-- **States / Senate / Governors / State summary:** actual U.S. state geometry from the U.S. Census Bureau TIGERweb 2026 state layer.
-- **House:** actual 2026 congressional-district geometry from the watch.vote national 2026 district snapshot, which is based on Census congressional-district geography and is paired with the election-result feed.
-
-The map is SVG, interactive, zoom-free and dependency-free. Click a state or district to open its race inspector. Available layers are Senate, House districts, Governors, and State summary.
-
-## Race provenance
-
-The interface keeps these concepts separate:
-
-- **Vote counts / reporting:** automatic provider data ultimately sourced from state election authorities.
-- **Calls/winners:** only shown when the normalized provider marks the race called/won (or state certification is represented by that provider).
-- **Pre-election ratings/watchlists:** reference context only; never rendered as vote results.
-- **Manual overrides/imports:** clearly retained as manual/imported records.
-
-Every automatic race can display its primary provider, underlying election authority label, update time, freshness, and source URL when supplied.
-
-## Live news and video
-
-The existing video workflow is preserved:
+The custom video system remains fully browser-side and works on GitHub Pages:
 
 - Add any YouTube URL or 11-character video ID.
-- Use included network live presets.
-- Dock players left or right.
-- Undock/float them.
+- Use built-in network live presets.
+- Dock left or right.
+- Undock/floating mode.
 - Drag and resize floating players.
-- Minimize or fullscreen them.
-- Players persist while you switch Dashboard / Map / Races / Sources / Data Control.
+- Minimize or fullscreen.
+- Players remain mounted while switching Dashboard / Live Map / Race Board / Sources / Data Control.
+- Layout persists in that browser using `localStorage`.
 
-The news panel and bottom **LIVE WIRE** attempt a live Google News RSS search through public proxy fallbacks and retain a local/source fallback wire if those services are unavailable.
+GitHub Pages is served over HTTPS and supplies the HTTP referrer YouTube embeds expect, making it preferable to opening `index.html` directly with `file://`.
 
-## Pages
+## News and ticker
 
-- **Dashboard** — automatic data health, called-race boards, geographic Senate map, news, network streams, poll-close timeline, watchlist, notes.
-- **Live Map** — full geographic state/district map with Senate, House, governor and state-summary layers plus race inspector.
-- **Race Board** — automatically reporting/called races plus pre-election Senate/governor/House battleground reference lists.
-- **Sources** — built-in feed health plus watch.vote, Open America, civicAPI, AP, DDHQ, official directories, forecast sources and news references.
-- **Data Control** — automatic refresh settings, optional custom JSON feed, imports/exports and manual emergency overrides.
+The dashboard includes a headline panel and bottom **LIVE WIRE** ticker. It attempts a live Google News RSS search using browser-accessible proxy fallbacks, with a built-in source wire if those services are unavailable.
 
-## Optional custom data
+## Failure behavior
 
-You do **not** need this for normal use. Data Control still supports a custom CORS-enabled JSON endpoint or imported snapshot if you later obtain another source.
+The system is designed not to turn an upstream outage into fake data:
 
-A compatible optional payload looks like:
+- A failed GitHub Actions refresh does not replace the already deployed Pages site, so the last successful watch.vote snapshot remains online.
+- Open America direct polling is independent of the mirrored watch.vote snapshot.
+- Every automatic race retains provider/source provenance and update time.
+- Manual/imported overrides are labeled separately.
+- Pre-election ratings/watchlists are displayed as reference context, not vote results.
 
-```json
-{
-  "updatedAt": "2026-11-03T23:15:00Z",
-  "chamber": {
-    "house": { "dem": 20, "rep": 24, "other": 0, "called": 44 },
-    "senate": { "dem": 3, "rep": 4, "other": 0, "called": 7 }
-  },
-  "results": [
-    {
-      "state": "GA",
-      "leader": "D",
-      "demPct": 50.7,
-      "repPct": 48.9,
-      "reporting": 76.2,
-      "called": false,
-      "source": "connected"
-    }
-  ]
-}
+## GitHub Actions schedule
+
+`.github/workflows/pages.yml` deploys on:
+
+- pushes to `main` or `master`
+- manual `workflow_dispatch`
+- an election-night cron window on November 3–5
+
+The scheduled job contains a 2026 year gate, so the election-night cron will not continue deploying in later years unless you intentionally change it.
+
+GitHub's scheduler is not a hard real-time service and can delay cron jobs. The direct Open America browser feed is therefore important for faster state-count updates during the gaps between static watch.vote mirror deployments.
+
+## Optional local development
+
+GitHub Pages is the primary deployment target. `local-server.js` and the starter files are retained only as an optional local development/test path.
+
+```bash
+node local-server.js
 ```
 
-## Important limitations
+They are **not required** by the published GitHub Pages dashboard.
 
-Free public sources can change their schemas, availability, or terms. The dashboard therefore shows provider health, caches last-good data, preserves source provenance, and never fabricates a result when a provider is unavailable. Open America currently has partial state coverage; watch.vote is the broader national automatic backbone.
+## Optional custom/manual data
 
-The pre-election race ratings, watchlists, and poll-close schedule are reference material assembled before election night and must not be confused with actual reported votes.
+Data Control still supports an optional CORS-enabled JSON URL, pasted JSON, file import, and manual overrides. None are required for the built-in automatic sources.
 
 ## Key files
 
-- `index.html` — application shell
-- `styles.css` — dark OSINT/presentation styling + geographic map styles
-- `data.js` — reference data, source catalog, poll closes, video presets
-- `app-core.js` — validation, YouTube helpers and GeoJSON-to-SVG projection
-- `live-sources.js` — watch.vote/Open America normalization and merge layer
-- `app.js` — UI, automatic refresh, map rendering, news, ticker and video workspace
-- `local-server.js` — localhost static server + automatic election-data/map gateway + cache
-- `START-MIDTERMS-DASHBOARD.bat` — Windows one-click launcher
-- `START-MIDTERMS-DASHBOARD.command` — macOS/Linux launcher
-- `sample-results.json` — optional custom/import schema example
+- `index.html` — static application shell
+- `styles.css` — dashboard/map styling
+- `data.js` — election reference data, poll closes, source catalog, video presets
+- `app-core.js` — validation, YouTube helpers, map projection helpers
+- `live-sources.js` — browser + Node election-source normalization/merge layer
+- `app.js` — dashboard UI, maps, polling, ticker, news and video workspace
+- `assets/data/live-results.json` — static mirrored results read by GitHub Pages
+- `assets/data/states.geojson` — deployed state map geometry
+- `assets/data/house-districts.geojson` — deployed House district geometry
+- `scripts/update-live-data.js` — server-side GitHub Actions fetch/normalize step
+- `scripts/build-pages.js` — builds the `_site` Pages artifact
+- `.github/workflows/pages.yml` — automatic refresh/test/deploy workflow
+- `.nojekyll` — prevents Jekyll processing
+- `local-server.js` — optional local development server only
 
-## Test
+## Local verification
 
 ```bash
 npm test
-node --check app.js
-node --check app-core.js
-node --check data.js
-node --check live-sources.js
-node --check local-server.js
+npm run verify
+node scripts/build-pages.js
 ```
+
+`npm run refresh:data` performs real network requests and is primarily intended for GitHub Actions or a machine with internet access.

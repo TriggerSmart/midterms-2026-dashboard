@@ -68,7 +68,7 @@
             <button id="add-video-float-btn" class="btn btn-ghost" type="button">Add Floating</button>
           </div>
           <p class="help-text">Floating windows are draggable and resizable. Docked players stay visible when you switch dashboard pages.</p>
-          <div id="file-video-warning" class="local-warning hidden"><strong>Direct-file mode:</strong> Run <code>node local-server.js</code> (or the included Windows/Mac starter) for automatic election feeds, geographic map data, and reliable docked YouTube playback. It stays on your computer; no external hosting, database, API key, or datasource setup is required.</div>
+          <div id="file-video-warning" class="local-warning hidden"><strong>Direct-file mode:</strong> this build is intended to be served over HTTPS from GitHub Pages. Publish the repository with the included Pages workflow for automatic election data, geographic maps, and reliable YouTube embeds. No database, API key, or datasource setup is required.</div>
         </div>
         <div class="panel-section">
           <h3>Network live presets</h3>
@@ -91,6 +91,7 @@
 
   <script src="data.js"></script>
   <script src="app-core.js"></script>
+  <script src="live-sources.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

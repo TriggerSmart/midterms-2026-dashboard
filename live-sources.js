@@ -265,11 +265,74 @@ function buildDashboardPayload({watchVote={}, openAmerica={}, fetchedAt=new Date
   };
 }
 
-module.exports = {
+function summarizeDashboardRaces(races, fetchedAt=new Date().toISOString()) {
+  const all = Array.isArray(races) ? races : [];
+  const chamber = {
+    house:{dem:0,rep:0,other:0,called:0},
+    senate:{dem:0,rep:0,other:0,called:0}
+  };
+  for (const office of ['house','senate']) {
+    for (const race of all.filter(r=>r.office===office && r.called)) {
+      const p = race.winnerParty || race.leader;
+      if (p === 'D') chamber[office].dem += 1;
+      else if (p === 'R') chamber[office].rep += 1;
+      else chamber[office].other += 1;
+      chamber[office].called += 1;
+    }
+  }
+  const states = [...new Set(all.map(r=>r.state).filter(Boolean))];
+  const results = [];
+  for (const state of states) {
+    const senate = all.find(r=>r.state===state && r.office==='senate' && r.providerResultAvailable);
+    const governor = all.find(r=>r.state===state && r.office==='governor' && r.providerResultAvailable);
+    const summary = stateSummaryFromRace(senate) || stateSummaryFromRace(governor) || summarizeHouseState(all,state);
+    if (summary) results.push(summary);
+  }
+  return {updatedAt:fetchedAt, chamber, results, races:all};
+}
+
+function overlayDashboardPayload(basePayload, overlayPayload) {
+  const base = basePayload && typeof basePayload === 'object' ? basePayload : {};
+  const overlay = overlayPayload && typeof overlayPayload === 'object' ? overlayPayload : {};
+  const map = new Map((Array.isArray(base.races) ? base.races : []).filter(r=>r&&r.key).map(r=>[r.key,{...r}]));
+  for (const fresh of Array.isArray(overlay.races) ? overlay.races : []) {
+    if (!fresh || !fresh.key) continue;
+    const prior = map.get(fresh.key);
+    if (!prior) { map.set(fresh.key,{...fresh}); continue; }
+    if (!fresh.providerResultAvailable) continue;
+    map.set(fresh.key,{
+      ...prior,
+      ...fresh,
+      called:Boolean(fresh.called || prior.called),
+      winnerParty:fresh.called ? fresh.winnerParty : (prior.called ? prior.winnerParty : (fresh.winnerParty || prior.winnerParty)),
+      callLabel:fresh.called ? fresh.callLabel : (prior.callLabel || fresh.callLabel || ''),
+      sourceProvider:fresh.sourceProvider || prior.sourceProvider,
+      sourceAuthority:fresh.sourceAuthority || prior.sourceAuthority,
+      sourceUrl:fresh.sourceUrl || prior.sourceUrl,
+      updatedAt:fresh.updatedAt || prior.updatedAt
+    });
+  }
+  const summarized = summarizeDashboardRaces([...map.values()], overlay.updatedAt || base.updatedAt || new Date().toISOString());
+  return {
+    ...base,
+    ...summarized,
+    mode:'automatic',
+    providers:{...(base.providers||{}),...(overlay.providers||{})},
+    providerStatus:{...(base.providerStatus||{}),...(overlay.providerStatus||{})},
+    armedBeforeResults:summarized.races.every(r=>!r.providerResultAvailable)
+  };
+}
+
+const MidtermsLiveSources = {
   partyCode,
   parseWatchRaceId,
   normalizeWatchVoteOffice,
   normalizeOpenAmerica,
   mergeRaces,
-  buildDashboardPayload
+  buildDashboardPayload,
+  summarizeDashboardRaces,
+  overlayDashboardPayload
 };
+
+if (typeof module === 'object' && module.exports) module.exports = MidtermsLiveSources;
+if (typeof globalThis !== 'undefined') globalThis.MidtermsLiveSources = MidtermsLiveSources;

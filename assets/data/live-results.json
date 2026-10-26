@@ -1,0 +1,14 @@
+{
+  "updatedAt": "2026-10-26T00:00:00Z",
+  "mode": "automatic",
+  "chamber": {"house":{"dem":0,"rep":0,"other":0,"called":0},"senate":{"dem":0,"rep":0,"other":0,"called":0}},
+  "results": [],
+  "races": [],
+  "providers": {
+    "watchVote":{"enabled":true,"label":"watch.vote","role":"GitHub Pages mirrored 2026 results"},
+    "openAmerica":{"enabled":true,"label":"Open America","role":"Direct CORS official-state-feed cross-check"}
+  },
+  "providerStatus": {"watchVote":{"ok":false,"stale":true},"openAmerica":{"ok":false,"stale":true}},
+  "armedBeforeResults": true,
+  "staticMirror": {"generatedAt":"2026-10-26T00:00:00Z","method":"repository placeholder; replaced by GitHub Actions"}
+}

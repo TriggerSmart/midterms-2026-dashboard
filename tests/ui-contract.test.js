@@ -6,21 +6,21 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('browser app defaults to automatic local results and geographic map APIs', () => {
+test('browser app defaults to automatic static results and geographic map data', () => {
   const app = read('app.js');
-  assert.match(app, /\/api\/live\/results/);
-  assert.match(app, /\/api\/map\/states/);
-  assert.match(app, /\/api\/map\/house-districts/);
+  assert.match(app, /assets\/data\/live-results\.json/);
+  assert.match(app, /assets\/data\/states\.geojson/);
+  assert.match(app, /assets\/data\/house-districts\.geojson/);
   assert.match(app, /automaticResults/);
   assert.match(app, /data-map-layer/);
   assert.match(app, /geoFeatureToPath/);
   assert.doesNotMatch(app, /class="state-tile/);
 });
 
-test('project ships a one-click Windows launcher and all-test package script', () => {
-  assert.ok(fs.existsSync(path.join(root, 'START-MIDTERMS-DASHBOARD.bat')));
+test('project ships GitHub Pages build scripts and all-test package script', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.scripts.start, 'node local-server.js');
+  assert.ok(pkg.scripts['build:pages']);
+  assert.ok(pkg.scripts['refresh:data']);
   assert.match(pkg.scripts.test, /tests\/\*\.test\.js/);
 });
 
@@ -30,4 +30,5 @@ test('readme documents automatic keyless sources and real geographic map', () =>
   assert.match(readme, /Open America/i);
   assert.match(readme, /geographic/i);
   assert.match(readme, /no API key/i);
+  assert.match(readme, /GitHub Pages/i);
 });

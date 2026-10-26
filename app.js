@@ -2,7 +2,8 @@
   'use strict';
   const D = window.MIDTERM_DATA;
   const C = window.MidtermsCore;
-  if (!D || !C) throw new Error('Midterms data/core not loaded');
+  const L = window.MidtermsLiveSources;
+  if (!D || !C || !L) throw new Error('Midterms data/core/live-source helpers not loaded');
 
   const STORE_KEY = 'midterms2026.commandCenter.v2';
   const qs = (s, root=document) => root.querySelector(s);
@@ -16,7 +17,16 @@
   const senateBG = new Set(D.senateBattlegrounds.map(r => r.state));
   const govBG = new Set(D.governorBattlegrounds.map(r => r.state));
   const houseBGStates = new Set(D.houseTossups.map(r => r.split('-')[0]));
-  const automaticAvailable = location.protocol === 'http:' && /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  const DATA_PATHS = Object.freeze({
+    results:'assets/data/live-results.json',
+    states:'assets/data/states.geojson',
+    districts:'assets/data/house-districts.geojson'
+  });
+  const OPEN_AMERICA = Object.freeze({
+    house:'https://openamerica.io/elections/results.json?year=2026&office=House',
+    senate:'https://openamerica.io/elections/results.json?year=2026&office=Senate',
+    governor:'https://openamerica.io/elections/results.json?year=2026&office=Governor'
+  });
 
   function defaultState(){
     return {
@@ -116,14 +126,12 @@
 
   async function getStateGeometry(){
     if(stateGeo) return stateGeo;
-    if(!automaticAvailable) throw new Error('Geographic map requires the included local launcher.');
-    if(!stateGeoPromise) stateGeoPromise=fetchWithTimeout('/api/map/states',{},18000).then(async r=>{if(!r.ok)throw new Error(`Map HTTP ${r.status}`);stateGeo=await r.json();return stateGeo;}).finally(()=>{stateGeoPromise=null;});
+    if(!stateGeoPromise) stateGeoPromise=fetchWithTimeout(`${DATA_PATHS.states}?v=${Date.now()}`,{},18000).then(async r=>{if(!r.ok)throw new Error(`Map HTTP ${r.status}`);stateGeo=await r.json();return stateGeo;}).finally(()=>{stateGeoPromise=null;});
     return stateGeoPromise;
   }
   async function getDistrictGeometry(){
     if(districtGeo) return districtGeo;
-    if(!automaticAvailable) throw new Error('House district map requires the included local launcher.');
-    if(!districtGeoPromise) districtGeoPromise=fetchWithTimeout('/api/map/house-districts',{},18000).then(async r=>{if(!r.ok)throw new Error(`District map HTTP ${r.status}`);districtGeo=await r.json();return districtGeo;}).finally(()=>{districtGeoPromise=null;});
+    if(!districtGeoPromise) districtGeoPromise=fetchWithTimeout(`${DATA_PATHS.districts}?v=${Date.now()}`,{},18000).then(async r=>{if(!r.ok)throw new Error(`District map HTTP ${r.status}`);districtGeo=await r.json();return districtGeo;}).finally(()=>{districtGeoPromise=null;});
     return districtGeoPromise;
   }
 
@@ -162,7 +170,7 @@
         if(route()!=='map'&&compact) location.hash='#map'; else renderPage();
       }));
     } catch(err){
-      el.innerHTML=`<div class="map-error"><strong>Geographic map unavailable.</strong><br/>${esc(err.message)}<br/><span>Launch with <code>node local-server.js</code> or double-click the included Windows starter.</span></div>`;
+      el.innerHTML=`<div class="map-error"><strong>Geographic map unavailable.</strong><br/>${esc(err.message)}<br/><span>If this is GitHub Pages, check the latest Pages workflow run and refresh. The deployment workflow publishes the map files automatically.</span></div>`;
     }
   }
   function hydrateGeoMaps(){qsa('[data-geo-map]',qs('#page-root')).forEach(renderGeoMapElement);}
@@ -196,7 +204,6 @@
     const active=liveRaces.filter(resultIsActive).length,called=liveRaces.filter(r=>r.called).length;
     const last=state.resultsMeta.lastUpdated?fmtDateTime(state.resultsMeta.lastUpdated):'Waiting for first automatic refresh';
     return `<div class="page-heading"><div><div class="eyebrow">NOVEMBER 3, 2026</div><h1>Election Night Dashboard</h1><p>Zero-setup live OSINT workspace for national results, real geographic maps, news, network streams and source verification.</p></div><div class="heading-actions"><a class="btn btn-ghost" href="#map">Open full map</a><a class="btn btn-ghost" href="#sources">Data sources</a><button class="btn btn-accent" data-open-video>+ Add video</button></div></div>
-      ${!automaticAvailable?`<div class="callout warning-callout"><strong>Automatic mode needs the included local launcher.</strong> Start <code>node local-server.js</code> (or the Windows starter) so live result feeds, geographic geometry and YouTube embeds all work without external hosting.</div>`:''}
       <div class="metrics-strip"><div class="metric-card"><span>Automatic races loaded</span><strong>${liveRaces.length}</strong><small>${active} currently reporting</small></div><div class="metric-card"><span>Race calls loaded</span><strong>${called}</strong><small>Source-confirmed call flags</small></div><div class="metric-card"><span>Last result refresh</span><strong class="metric-small">${esc(last)}</strong><small>${esc(state.resultsMeta.mode)}</small></div><div class="metric-card"><span>Source mode</span><strong class="metric-small">KEYLESS</strong><small>watch.vote + Open America</small></div></div>
       <div class="chamber-grid">${chamberCard('house')}${chamberCard('senate')}</div>
       <div class="dashboard-grid">
@@ -258,8 +265,8 @@
 
   function sourcesPage(){
     return `<div class="page-heading"><div><div class="eyebrow">VERIFY BEFORE YOU AMPLIFY</div><h1>Source Center</h1><p>The dashboard's automatic feeds are shown first, followed by official directories, ratings organizations and news coverage.</p></div><div class="heading-actions"><button class="btn btn-accent" data-open-video>+ Video feed</button></div></div>
-      <div class="callout"><strong>No datasource hookup is required.</strong> The included local gateway automatically pulls watch.vote for national 2026 race data and Open America as an independent official-state-feed cross-check. AP and Decision Desk HQ remain useful verification sites, but their professional APIs require credentials and are not used anonymously.</div>
-      <section class="panel" style="margin-top:12px"><div class="panel-header"><div><div class="panel-title">Built-in Automatic Source Health</div><div class="panel-subtitle">Fetched by your local server; no key stored in the browser</div></div><button class="btn btn-small btn-ghost" data-refresh-auto-results>Refresh now</button></div><div class="panel-body"><div class="provider-list">${providerHealthHTML()}</div><p class="help-text">watch.vote is the primary normalized race feed; Open America is used as a secondary state-count source where it has coverage. Neither source is treated as an AP/DDHQ substitute for proprietary race calls.</p></div></section>
+      <div class="callout"><strong>No datasource hookup is required.</strong> GitHub Pages automatically serves a mirrored watch.vote snapshot, while Open America is polled directly in the browser as an independent official-state-feed cross-check. AP and Decision Desk HQ remain useful verification sites, but their professional APIs require credentials and are not used anonymously.</div>
+      <section class="panel" style="margin-top:12px"><div class="panel-header"><div><div class="panel-title">Built-in Automatic Source Health</div><div class="panel-subtitle">GitHub Pages mirror + direct browser CORS feed; no API key</div></div><button class="btn btn-small btn-ghost" data-refresh-auto-results>Refresh now</button></div><div class="panel-body"><div class="provider-list">${providerHealthHTML()}</div><p class="help-text">watch.vote is the primary normalized race feed; Open America is used as a secondary state-count source where it has coverage. Neither source is treated as an AP/DDHQ substitute for proprietary race calls.</p></div></section>
       <div class="source-grid" style="margin-top:12px">${D.sources.map(s=>`<article class="source-card"><div class="source-category">${esc(s.category)}</div><h3>${esc(s.name)}</h3><p>${esc(s.note)}</p><div class="source-actions"><a class="btn btn-small btn-ghost" href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a></div></article>`).join('')}</div>
       <section class="panel" style="margin-top:12px"><div class="panel-header"><div><div class="panel-title">Official State Results Finder</div><div class="panel-subtitle">Use NASS to locate the state election authority</div></div><a class="btn btn-small btn-ghost" href="https://www.nass.org/can-I-vote/election-officials" target="_blank" rel="noopener">NASS directory</a></div><div class="panel-body"><div class="form-grid"><div><label class="field-label">State</label><select id="official-state-select" class="select-input">${D.states.filter(s=>s.code!=='DC').map(s=>`<option value="${s.name}">${s.name}</option>`).join('')}</select></div><div style="align-self:end"><button class="btn btn-accent" data-search-official>Search official 2026 results</button></div></div></div></section>`;
   }
@@ -270,7 +277,7 @@
     return `<div class="page-heading"><div><div class="eyebrow">DATA CONTROL</div><h1>Automatic Results & Overrides</h1><p>The default data pipeline is already connected. Use this page to see source health, adjust refresh timing, or add an optional custom/manual override.</p></div><div class="heading-actions"><button class="btn btn-ghost" data-export>Export snapshot</button><button class="btn btn-danger" data-reset>Reset local data</button></div></div>
       <div class="section-split"><section class="panel"><div class="panel-header"><div><div class="panel-title">Automatic Keyless Results</div><div class="panel-subtitle">watch.vote primary + Open America cross-check</div></div><span class="tag ${state.resultsMeta.lastError?'tag-red':state.resultsMeta.mode==='automatic'?'tag-green':'tag-orange'}">${esc(state.resultsMeta.mode)}</span></div><div class="panel-body">
         <div class="provider-list">${providerHealthHTML()}</div><label class="check-row"><input id="automatic-results" type="checkbox" ${state.settings.automaticResults?'checked':''}/> Automatically refresh live election data</label><label class="field-label">Refresh interval (seconds)</label><input id="poll-seconds" class="text-input" type="number" min="30" max="600" value="${state.settings.pollSeconds||60}"/><div class="button-row"><button class="btn btn-accent" data-refresh-auto-results>Refresh Automatic Data Now</button><button class="btn btn-ghost" data-save-auto-settings>Save Automatic Settings</button></div>
-        <div class="status-box"><strong>Last update:</strong> ${state.resultsMeta.lastUpdated?esc(fmtDateTime(state.resultsMeta.lastUpdated)):'none'}<br/><strong>Last error:</strong> ${esc(state.resultsMeta.lastError||'none')}<br/><strong>Loaded races:</strong> ${liveRaces.length}</div><p class="help-text">No API key, signup, datasource URL or database is required. The local gateway caches last-good data if an upstream endpoint is temporarily unavailable.</p></div></section>
+        <div class="status-box"><strong>Last update:</strong> ${state.resultsMeta.lastUpdated?esc(fmtDateTime(state.resultsMeta.lastUpdated)):'none'}<br/><strong>Last error:</strong> ${esc(state.resultsMeta.lastError||'none')}<br/><strong>Loaded races:</strong> ${liveRaces.length}</div><p class="help-text">No API key, signup, datasource URL or database is required. GitHub Pages keeps the last successfully deployed watch.vote snapshot if an upstream refresh fails; Open America is also polled directly when available.</p></div></section>
       <section class="panel"><div class="panel-header"><div><div class="panel-title">Optional Custom JSON Feed</div><div class="panel-subtitle">Advanced override/fallback; not required</div></div><span class="tag tag-blue">OPTIONAL</span></div><div class="panel-body"><label class="field-label">JSON endpoint URL</label><input id="results-url" class="text-input" value="${esc(state.settings.resultsUrl||'')}" placeholder="https://example.com/results-2026.json"/><div class="button-row"><button class="btn btn-ghost" data-connect-results>Fetch Custom Feed Once</button><button class="btn btn-ghost" data-save-feed-settings>Save URL</button></div><p class="help-text">Use only a browser-accessible CORS-enabled endpoint you trust. AP/DDHQ credentials should never be pasted here.</p></div></section></div>
       <div class="section-split" style="margin-top:12px"><section class="panel"><div class="panel-header"><div><div class="panel-title">Import / Paste Snapshot</div><div class="panel-subtitle">Emergency offline/manual workflow</div></div><span class="tag tag-blue">LOCAL</span></div><div class="panel-body"><textarea id="json-import" class="textarea" placeholder='{"results":[{"state":"GA","leader":"D"}]}'></textarea><div class="button-row"><button class="btn btn-accent" data-import-paste>Import JSON</button><label class="btn btn-ghost" style="cursor:pointer">Choose JSON file<input id="json-file" type="file" accept="application/json,.json" hidden/></label></div></div></section>
       <section class="panel"><div class="panel-header"><div><div class="panel-title">Manual Called-Race Board</div><div class="panel-subtitle">Emergency override for the top chamber cards</div></div></div><div class="panel-body"><h3 style="font-size:12px;margin:0">House calls</h3><div class="form-grid"><div><label class="field-label">Dem</label><input id="house-dem" class="text-input" type="number" value="${h.dem}"/></div><div><label class="field-label">GOP</label><input id="house-rep" class="text-input" type="number" value="${h.rep}"/></div><div><label class="field-label">Other</label><input id="house-other" class="text-input" type="number" value="${h.other||0}"/></div><div><label class="field-label">Called</label><input id="house-called" class="text-input" type="number" min="0" max="435" value="${h.called||0}"/></div></div><h3 style="font-size:12px;margin:14px 0 0">Senate calls</h3><div class="form-grid"><div><label class="field-label">Dem</label><input id="senate-dem" class="text-input" type="number" value="${s.dem}"/></div><div><label class="field-label">GOP</label><input id="senate-rep" class="text-input" type="number" value="${s.rep}"/></div><div><label class="field-label">Other</label><input id="senate-other" class="text-input" type="number" value="${s.other||0}"/></div><div><label class="field-label">Called</label><input id="senate-called" class="text-input" type="number" min="0" max="35" value="${s.called||0}"/></div></div><div class="button-row"><button class="btn btn-accent" data-save-chambers>Save Manual Board</button></div></div></section></div>
@@ -323,10 +330,31 @@
 
   async function fetchWithTimeout(url,options={},timeout=10000){const ctl=new AbortController(),id=setTimeout(()=>ctl.abort(),timeout);try{return await fetch(url,{...options,signal:ctl.signal,cache:'no-store'});}finally{clearTimeout(id);}}
 
+  async function fetchOpenAmericaDirect(){
+    const entries=await Promise.all(Object.entries(OPEN_AMERICA).map(async ([office,url])=>{
+      const r=await fetchWithTimeout(url,{credentials:'omit'},12000);
+      if(!r.ok)throw new Error(`Open America ${office} HTTP ${r.status}`);
+      return [office,await r.json()];
+    }));
+    const openAmerica=Object.fromEntries(entries);
+    const payload=L.buildDashboardPayload({openAmerica,fetchedAt:new Date().toISOString()});
+    payload.providerStatus={openAmerica:{ok:true,stale:false,direct:true,label:'Direct CORS'}};
+    return payload;
+  }
+
   async function fetchAutomaticResults(showToast=false){
-    if(!automaticAvailable){state.resultsMeta.lastError='Start the included local launcher for automatic feeds.';saveState();setResultsStatus();if(showToast)toast('Start node local-server.js (or the Windows starter) for automatic data','error');return;}
     try{
-      const res=await fetchWithTimeout('/api/live/results',{},20000);if(!res.ok)throw new Error(`Local data gateway HTTP ${res.status}`);const payload=await res.json();
+      const res=await fetchWithTimeout(`${DATA_PATHS.results}?v=${Date.now()}`,{},20000);
+      if(!res.ok)throw new Error(`GitHub Pages data snapshot HTTP ${res.status}`);
+      let payload=await res.json();
+      try{
+        const direct=await fetchOpenAmericaDirect();
+        payload=L.overlayDashboardPayload(payload,direct);
+        payload.providerStatus={...(payload.providerStatus||{}),openAmerica:{ok:true,stale:false,direct:true,label:'Direct CORS'}};
+      }catch(directErr){
+        console.warn('Direct Open America refresh unavailable; using deployed snapshot',directErr);
+        payload.providerStatus={...(payload.providerStatus||{}),openAmerica:{...((payload.providerStatus||{}).openAmerica||{}),direct:false,directError:String(directErr.message||directErr)}};
+      }
       const parsed=C.validateImportPayload(payload,D.states);liveRaces=Array.isArray(payload.races)?payload.races:[];providerStatus=payload.providerStatus||{};
       const autoResults=parsed.results.map(r=>({...r,source:'connected'}));
       const manualRecords=Object.fromEntries(Object.entries(state.results).filter(([,r])=>r&&r.source==='manual'));
@@ -350,7 +378,7 @@
   function saveChambers(){const n=id=>Math.max(0,Number(qs(id)?.value)||0);state.chamber.house={dem:n('#house-dem'),rep:n('#house-rep'),other:n('#house-other'),called:Math.min(435,n('#house-called'))};state.chamber.senate={dem:n('#senate-dem'),rep:n('#senate-rep'),other:n('#senate-other'),called:Math.min(35,n('#senate-called'))};state.resultsMeta.mode='manual';saveState();renderPage();toast('Manual called-race board saved','success');}
   function exportSnapshot(){const payload={updatedAt:new Date().toISOString(),chamber:state.chamber,results:Object.values(state.results),races:liveRaces,notes:state.notes};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='midterms-2026-dashboard-snapshot.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function resetLocal(){if(!confirm('Reset all local results, notes, videos and settings for this dashboard?'))return;localStorage.removeItem(STORE_KEY);state=defaultState();liveRaces=[];providerStatus={};configurePolling();renderPage();renderVideoWorkspace();renderTicker();fetchAutomaticResults(false);toast('Local dashboard reset');}
-  function configurePolling(){clearInterval(resultPollTimer);resultPollTimer=null;if(state.settings.automaticResults&&automaticAvailable)resultPollTimer=setInterval(()=>fetchAutomaticResults(false),Math.max(30,state.settings.pollSeconds||60)*1000);}
+  function configurePolling(){clearInterval(resultPollTimer);resultPollTimer=null;if(state.settings.automaticResults)resultPollTimer=setInterval(()=>fetchAutomaticResults(false),Math.max(30,state.settings.pollSeconds||60)*1000);}
 
   function parseGoogleNewsXml(text){const doc=new DOMParser().parseFromString(text,'application/xml');return [...doc.querySelectorAll('item')].slice(0,25).map(item=>C.normalizeHeadline({title:item.querySelector('title')?.textContent||'',link:item.querySelector('link')?.textContent||'#',pubDate:item.querySelector('pubDate')?.textContent||'',source:item.querySelector('source')?.textContent||'Google News'}));}
   async function fetchNews(showToast=false){const query=state.settings.newsQuery||'2026 midterm elections',rss=`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;let items=[],mode='fallback';try{const r=await fetchWithTimeout(state.settings.rss2json+encodeURIComponent(rss),{},9000);if(!r.ok)throw new Error(`RSS2JSON HTTP ${r.status}`);const j=await r.json();if(j.status!=='ok'||!Array.isArray(j.items))throw new Error(j.message||'RSS2JSON returned no items');items=j.items.slice(0,25).map(x=>C.normalizeHeadline({...x,source:x.author||'Google News'}));mode='live';}catch(firstErr){try{const r=await fetchWithTimeout(state.settings.allOrigins+encodeURIComponent(rss),{},9000);if(!r.ok)throw new Error(`Proxy HTTP ${r.status}`);items=parseGoogleNewsXml(await r.text());if(!items.length)throw new Error('No RSS items');mode='live';}catch(secondErr){console.warn('News proxies unavailable',firstErr,secondErr);items=D.defaultHeadlines.map(C.normalizeHeadline);mode='fallback';if(showToast)toast('Live RSS unavailable; using source/fallback wire','error');}}state.headlines=items;state.headlineMode=mode;state.newsLastUpdated=new Date().toISOString();saveState();renderTicker();if(route()==='dashboard')renderPage();if(showToast&&mode==='live')toast(`News wire refreshed: ${items.length} headlines`,'success');}
@@ -372,9 +400,9 @@
 
   function boot(){
     if(!location.hash)history.replaceState(null,'','#dashboard');initGlobalEvents();
-    const warning=qs('#file-video-warning');if(warning&&location.protocol==='file:'){warning.classList.remove('hidden');warning.innerHTML='<strong>Direct-file mode:</strong> automatic election feeds, geographic maps, and reliable YouTube embeds use the included local launcher. Run <code>node local-server.js</code> (or double-click <code>START-MIDTERMS-DASHBOARD.bat</code>). No external hosting or database is used.';}
+    const warning=qs('#file-video-warning');if(warning&&location.protocol==='file:'){warning.classList.remove('hidden');warning.innerHTML='<strong>Direct-file mode:</strong> this build is designed for GitHub Pages. Publish the repository with the included Pages workflow (recommended), or use the optional local launcher while testing. GitHub Pages requires no database or API key.';}
     configurePolling();renderPage();renderVideoWorkspace();renderTicker();renderVideoManager();setResultsStatus();updateClock();setInterval(updateClock,1000);
-    if(state.settings.automaticResults&&automaticAvailable)setTimeout(()=>fetchAutomaticResults(false),150);
+    if(state.settings.automaticResults)setTimeout(()=>fetchAutomaticResults(false),150);
     setTimeout(()=>fetchNews(false),700);
   }
   boot();

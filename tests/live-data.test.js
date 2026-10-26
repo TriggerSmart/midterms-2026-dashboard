@@ -126,3 +126,19 @@ test('Open America fills a same-race result when watch.vote only has pre-electio
   assert.equal(merged[0].totalVotes, 1000);
   assert.equal(merged[0].sourceProvider, 'Open America');
 });
+
+test('GitHub Pages overlay keeps mirrored watch.vote calls while applying fresher Open America counts', () => {
+  const base = live.buildDashboardPayload({watchVote:watchRows,openAmerica:{house:null,senate:null,governor:null},fetchedAt:'2026-11-04T01:00:00Z'});
+  const direct = live.buildDashboardPayload({openAmerica:{
+    house:{races:{}},
+    senate:{as_of:'2026-11-04T01:05:00Z',live:true,races:{GA:{leader:'D',called:false,pct_in:80,total:250000,cands:[{n:'Jane Democrat',p:'D',v:130000,pct:52},{n:'John Republican',p:'R',v:120000,pct:48}]}}},
+    governor:{races:{}}
+  },fetchedAt:'2026-11-04T01:05:00Z'});
+  const merged=live.overlayDashboardPayload(base,direct);
+  const race=merged.races.find(r=>r.key==='GA-senate');
+  assert.equal(race.called,true);
+  assert.equal(race.winnerParty,'D');
+  assert.equal(race.totalVotes,250000);
+  assert.equal(race.reporting,80);
+  assert.equal(merged.chamber.senate.dem,1);
+});

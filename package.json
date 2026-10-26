@@ -1,9 +1,12 @@
 {
-  "name":"2026-midterms-command-center",
-  "private":true,
-  "type":"commonjs",
-  "scripts":{
-    "start":"node local-server.js",
-    "test":"node --test tests/*.test.js"
+  "name": "2026-midterms-command-center",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node local-server.js",
+    "test": "node --test tests/*.test.js",
+    "refresh:data": "node scripts/update-live-data.js --output-dir assets/data",
+    "build:pages": "node scripts/build-pages.js",
+    "verify": "npm test && node --check app.js && node --check app-core.js && node --check data.js && node --check live-sources.js && node --check scripts/update-live-data.js && node --check scripts/build-pages.js"
   }
 }
