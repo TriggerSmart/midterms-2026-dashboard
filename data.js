@@ -3,6 +3,9 @@
   if (typeof module === 'object' && module.exports) module.exports = data;
   root.MIDTERM_DATA = data;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(){
+  const fipsByCode = {
+    AL:'01',AK:'02',AZ:'04',AR:'05',CA:'06',CO:'08',CT:'09',DE:'10',DC:'11',FL:'12',GA:'13',HI:'15',ID:'16',IL:'17',IN:'18',IA:'19',KS:'20',KY:'21',LA:'22',ME:'23',MD:'24',MA:'25',MI:'26',MN:'27',MS:'28',MO:'29',MT:'30',NE:'31',NV:'32',NH:'33',NJ:'34',NM:'35',NY:'36',NC:'37',ND:'38',OH:'39',OK:'40',OR:'41',PA:'42',RI:'44',SC:'45',SD:'46',TN:'47',TX:'48',UT:'49',VT:'50',VA:'51',WA:'53',WV:'54',WI:'55',WY:'56'
+  };
   const states = [
     ['AK','Alaska',0,7],['HI','Hawaii',1,7],
     ['WA','Washington',0,1],['OR','Oregon',0,2],['CA','California',0,3],
@@ -16,7 +19,7 @@
     ['GA','Georgia',8,5],['FL','Florida',8,6],['SC','South Carolina',8,4],['NC','North Carolina',9,4],['VA','Virginia',9,3],
     ['PA','Pennsylvania',9,2],['NY','New York',10,1],['NJ','New Jersey',10,2],['MD','Maryland',10,3],['DE','Delaware',10,4],['DC','District of Columbia',10,5],
     ['VT','Vermont',11,0],['NH','New Hampshire',12,0],['MA','Massachusetts',12,1],['CT','Connecticut',11,2],['RI','Rhode Island',12,2],['ME','Maine',13,0]
-  ].map(([code,name,col,row]) => ({code,name,col,row}));
+  ].map(([code,name,col,row]) => ({code,name,col,row,fips:fipsByCode[code]}));
 
   const senateBattlegrounds = [
     {state:'AK', incumbent:'Daniel Sullivan', seat:'Regular', baseline:'R-held'},
@@ -61,10 +64,13 @@
   ];
 
   const sources = [
-    {name:'Decision Desk HQ — Nov. 3 results', category:'Results', url:'https://votes.decisiondeskhq.com/elections/2026-11-03', note:'Election results and race calls; access/embedding can vary.'},
+    {name:'watch.vote — 2026 live results API', category:'Live Data', url:'https://watch.vote/docs/api-reference/elections', note:'Built-in automatic source. Keyless 2026 Senate, House and governor results read from official state counts; calls only when licensed/certified.'},
+    {name:'Open America — official-state results API', category:'Live Data', url:'https://openamerica.io/elections/api/', note:'Built-in automatic cross-check. Free keyless JSON sourced from official state election feeds where adapters are available.'},
+    {name:'civicAPI — free realtime election API', category:'Live Data', url:'https://civicapi.org/api-documentation', note:'Free keyless realtime election results and calls; included as an external verification/fallback source with attribution.'},
+    {name:'Decision Desk HQ — Nov. 3 results', category:'Credentialed / Web', url:'https://votes.decisiondeskhq.com/elections/2026-11-03', note:'Web results reference. DDHQ API results require OAuth/Bearer credentials; the dashboard does not depend on it.'},
     {name:'Decision Desk HQ — 2026 forecasts', category:'Forecast', url:'https://votes.decisiondeskhq.com/', note:'House, Senate and governor forecast models.'},
-    {name:'Associated Press Elections', category:'Results', url:'https://apnews.com/hub/election-2026', note:'AP election coverage and race calls. API access requires credentials.'},
-    {name:'AP Elections API docs', category:'Data', url:'https://developer.ap.org/ap-elections-api/', note:'Commercial authenticated election data integration reference.'},
+    {name:'Associated Press Elections', category:'Credentialed / Web', url:'https://apnews.com/hub/election-2026', note:'AP election coverage and race calls. API access requires credentials.'},
+    {name:'AP Elections API docs', category:'Data', url:'https://developer.ap.org/ap-elections-api/', note:'Authenticated election data integration reference; AP requires an API key/credentials.'},
     {name:'Ballotpedia — 2026 elections', category:'Reference', url:'https://ballotpedia.org/Elections', note:'Candidates, battlegrounds, ballot measures and election administration.'},
     {name:'Cook Political Report ratings', category:'Forecast', url:'https://www.cookpolitical.com/ratings', note:'Continuously updated House, Senate and governor ratings.'},
     {name:"Sabato's Crystal Ball", category:'Forecast', url:'https://centerforpolitics.org/crystalball/', note:'Race ratings and election analysis.'},
@@ -103,7 +109,7 @@
     states, senateBattlegrounds, governorBattlegrounds, houseTossups,
     videoPresets, sources, pollCloseET,
     defaultHeadlines:[
-      {title:'Election-night dashboard ready — connect a live results source or use manual/import mode.', link:'#data'},
+      {title:'Automatic election feeds are armed: watch.vote + Open America require no API key or setup.', link:'#data'},
       {title:'Use Source Center to open AP, DDHQ, Ballotpedia, Cook, official state election offices and network coverage.', link:'#sources'},
       {title:'Video windows persist while you move between Dashboard, Map, Races, Sources and Data pages.', link:'#videos'}
     ]

@@ -11,7 +11,7 @@ test('cycle metadata targets November 3 2026 and correct federal seat counts', (
   assert.equal(data.governorRaces, 36);
 });
 
-test('state tile map includes all 50 states plus DC exactly once', () => {
+test('state metadata includes all 50 states plus DC exactly once', () => {
   assert.equal(data.states.length, 51);
   assert.equal(new Set(data.states.map(s => s.code)).size, 51);
   assert.ok(data.states.some(s => s.code === 'DC'));

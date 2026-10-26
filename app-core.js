@@ -105,6 +105,66 @@
     return id ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` : '';
   }
 
+  function projectUsPoint(lon, lat, width=1000, height=600){
+    lon = Number(lon); lat = Number(lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [NaN, NaN];
+    if (lon > 0) lon -= 360;
+    const pad = 24;
+    // Alaska inset.
+    if (lat >= 50 && lon <= -129) {
+      const x = pad + ((lon + 180) / 50) * (width * 0.24);
+      const y = height * 0.72 + ((72 - lat) / 22) * (height * 0.23);
+      return [x, y];
+    }
+    // Hawaii inset.
+    if (lat >= 17 && lat <= 24 && lon >= -162 && lon <= -153) {
+      const x = width * 0.25 + ((lon + 162) / 9) * (width * 0.15);
+      const y = height * 0.83 + ((24 - lat) / 7) * (height * 0.12);
+      return [x, y];
+    }
+    // Contiguous U.S. equirectangular view, intentionally simple and dependency-free.
+    const x = pad + ((lon + 125) / 59) * (width - pad * 2);
+    const y = pad + ((50 - lat) / 26) * (height * 0.78);
+    return [x, y];
+  }
+
+  function geoFeatureToPath(feature, width=1000, height=600){
+    const geom = feature && feature.geometry;
+    if (!geom || !Array.isArray(geom.coordinates)) return '';
+    const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+    const parts = [];
+    for (const polygon of polygons) {
+      for (const ring of polygon) {
+        if (!Array.isArray(ring) || !ring.length) continue;
+        const points = ring.map(pt => projectUsPoint(pt && pt[0], pt && pt[1], width, height)).filter(pt => pt.every(Number.isFinite));
+        if (points.length < 2) continue;
+        parts.push(`M${points.map((pt,i)=>`${i?'L':''}${pt[0].toFixed(1)},${pt[1].toFixed(1)}`).join('')}Z`);
+      }
+    }
+    return parts.join('');
+  }
+
+  function stateCodeFromGeoFeature(feature, states){
+    const props = feature && feature.properties || {};
+    const geoid = String(props.GEOID || props.STATEFP || props.STATE || '').padStart(2,'0').slice(0,2);
+    const byFips = (states || []).find(s => String(s.fips) === geoid);
+    if (byFips) return byFips.code;
+    const name = String(props.NAME || props.BASENAME || '').trim().toLowerCase();
+    const byName = (states || []).find(s => String(s.name).trim().toLowerCase() === name);
+    return byName ? byName.code : null;
+  }
+
+  function districtKeyFromGeoFeature(feature, states){
+    const props = feature && feature.properties || {};
+    const geoid = String(props.GEOID || '');
+    const fips = String(props.STATE || props.STATEFP || geoid.slice(0,2) || '').padStart(2,'0').slice(0,2);
+    const state = (states || []).find(s => String(s.fips) === fips);
+    if (!state) return null;
+    const districtRaw = props.CD120 ?? props.CD119FP ?? props.CD120FP ?? geoid.slice(2,4);
+    const district = String(districtRaw == null ? '' : districtRaw).padStart(2,'0').slice(-2);
+    return /^\d{2}$/.test(district) ? `${state.code}-${district}` : null;
+  }
+
   function mergeResultMaps(existing, incoming){
     const out = Object.assign({}, existing || {});
     for (const item of incoming || []) {
@@ -113,5 +173,5 @@
     return out;
   }
 
-  return {parseYouTubeId, normalizeResultRecord, validateImportPayload, normalizeHeadline, computeChamberStatus, safeJsonParse, makeYouTubeEmbedUrl, mergeResultMaps};
+  return {parseYouTubeId, normalizeResultRecord, validateImportPayload, normalizeHeadline, computeChamberStatus, safeJsonParse, makeYouTubeEmbedUrl, projectUsPoint, geoFeatureToPath, stateCodeFromGeoFeature, districtKeyFromGeoFeature, mergeResultMaps};
 });
