@@ -12,6 +12,24 @@ A GitHub Pages-compatible election-night OSINT dashboard for the **November 3, 2
 
 The included workflow runs the tests, refreshes the static election-data mirror and geographic maps, builds `_site`, and deploys it with the official GitHub Pages actions.
 
+
+## Projection mode — populated before election night
+
+The dashboard now opens in **Projection Map** mode so it is useful before any ballots are reported. Projection data is stored separately from actual vote data and is always labeled as a forecast.
+
+- **House:** 270toWin 2026 House consensus snapshot dated October 23, 2026 — 220 Democratic, 196 Republican, 19 Toss-Up seats; the map includes the 89 non-safe districts from the consensus table and uses a current-member baseline for safe seats.
+- **Senate:** Cook Political Report race ratings dated October 20, 2026 on all 35 contests. The chamber balance card separately shows the 270toWin consensus balance (49 Democratic-caucus, 46 Republican, 5 Toss-Up) so the site does not imply that Cook's race-rating categories are a seat-probability model.
+- **Governors:** Cook Political Report race ratings dated October 23, 2026 on all 36 contests. The balance card separately shows the 270toWin consensus (23 Democratic, 22 Republican, 5 Toss-Up).
+
+Projection-map colors use the categorical ratings **Solid / Likely / Lean / Toss Up**. The visual strength bar is only a category visualization; it is **not a modeled probability**.
+
+The map has a persistent switch between:
+
+- **Projection Map** — forecast ratings and pre-election context
+- **Live Results** — actual vote totals, reporting percentages, leads and calls from the automatic election feeds
+
+The same state/district geography is reused in both modes, so election-night operation is a mode switch rather than a separate page or map.
+
 ## Automatic election data — no datasource hookup required
 
 The site uses two complementary free/keyless paths.
@@ -44,19 +62,26 @@ The site never embeds an AP or Decision Desk HQ credential. AP Elections API and
 
 The map is a real geographic SVG map, not a square/cartogram layout.
 
-- State/Senate/Governor layers use U.S. Census Bureau state GeoJSON.
-- House uses the 2026 congressional-district GeoJSON snapshot exposed by watch.vote/Census.
-- The deployment workflow downloads both geometry files into `assets/data/` before publishing.
-- All map reads in the browser are repository-relative, so they work from a GitHub Pages project subdirectory.
+- State/Senate/Governor layers use U.S. Census geography.
+- House uses 120th Congressional District geography for the 2026 election cycle.
+- The deployment workflow downloads the current geometry into `assets/data/` before publishing.
+- If a fresh repository still contains the intentionally tiny placeholder geometry files before the first successful workflow refresh, the browser automatically falls back to the committed Census-derived `states.json` / `cd120.json` geography from the open-source `seifertben/election-map` repository through jsDelivr. No setup or URL entry is required.
+- All local map reads are repository-relative, so project Pages URLs work from a subdirectory.
 
-Available layers:
+Available projection layers:
 
-- Senate
 - U.S. House districts
+- Senate
+- Governors
+
+Available live-results layers:
+
+- U.S. House districts
+- Senate
 - Governors
 - State summary
 
-Click a state or district to inspect candidate totals, reporting percentage, race status, source authority, provider, and update time.
+Click a state or district in Projection mode to inspect its rating, forecast direction, current/incumbent context, poll-close wave, source and state news. Click the same geography in Live Results mode to inspect candidate totals, reporting percentage, race status, source authority, provider and update time.
 
 ## Live video workspace
 
@@ -118,6 +143,7 @@ Data Control still supports an optional CORS-enabled JSON URL, pasted JSON, file
 - `index.html` — static application shell
 - `styles.css` — dashboard/map styling
 - `data.js` — election reference data, poll closes, source catalog, video presets
+- `projections.js` — pre-election House/Senate/Governor projection snapshot and source metadata
 - `app-core.js` — validation, YouTube helpers, map projection helpers
 - `live-sources.js` — browser + Node election-source normalization/merge layer
 - `app.js` — dashboard UI, maps, polling, ticker, news and video workspace

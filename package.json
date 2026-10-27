@@ -7,6 +7,6 @@
     "test": "node --test tests/*.test.js",
     "refresh:data": "node scripts/update-live-data.js --output-dir assets/data",
     "build:pages": "node scripts/build-pages.js",
-    "verify": "npm test && node --check app.js && node --check app-core.js && node --check data.js && node --check live-sources.js && node --check scripts/update-live-data.js && node --check scripts/build-pages.js"
+    "verify": "npm test && node --check app.js && node --check app-core.js && node --check data.js && node --check projections.js && node --check live-sources.js && node --check scripts/update-live-data.js && node --check scripts/build-pages.js"
   }
 }

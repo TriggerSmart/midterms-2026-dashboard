@@ -16,7 +16,8 @@ const URLS = Object.freeze({
     senate:'https://openamerica.io/elections/results.json?year=2026&office=Senate',
     governor:'https://openamerica.io/elections/results.json?year=2026&office=Governor'
   },
-  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CNAME&returnGeometry=true&outSR=4326&f=geojson'
+  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CNAME&returnGeometry=true&outSR=4326&f=geojson',
+  currentLegislators:'https://unitedstates.github.io/congress-legislators/legislators-current.json'
 });
 
 async function defaultFetchJson(url, timeoutMs=25000) {
@@ -28,7 +29,7 @@ async function defaultFetchJson(url, timeoutMs=25000) {
       redirect:'follow',
       headers:{
         accept:'application/json, text/plain;q=0.8, */*;q=0.5',
-        'user-agent':'TriggerSmart-Midterms-Command-Center/3.0 (+GitHub Pages static mirror)'
+        'user-agent':'TriggerSmart-Midterms-Command-Center/4.0 (+GitHub Pages static mirror)'
       }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).hostname}`);
@@ -52,64 +53,110 @@ function statusFor(group) {
   };
 }
 
-function writeJson(file, value) {
-  fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+function writeJson(file, value) { fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n'); }
+function readJsonIfPresent(file) { try { return JSON.parse(fs.readFileSync(file,'utf8')); } catch (_) { return null; } }
+
+function partyCode(party, caucus='') {
+  const p=String(caucus||party||'').toLowerCase();
+  if(p.includes('democrat')) return 'D';
+  if(p.includes('republican')) return 'R';
+  if(p.includes('independent')) return 'I';
+  return 'O';
+}
+
+function buildHouseBaseline(legislators, generatedAt=new Date().toISOString()) {
+  const districts={};
+  for(const person of Array.isArray(legislators)?legislators:[]) {
+    const terms=Array.isArray(person.terms)?person.terms:[];
+    const current=[...terms].reverse().find(t=>t&&t.type==='rep'&&String(t.end||'9999')>generatedAt.slice(0,10));
+    if(!current || !/^[A-Z]{2}$/.test(String(current.state||'')) || current.district==null) continue;
+    const district=String(Number(current.district)).padStart(2,'0');
+    const key=`${current.state}-${district}`;
+    districts[key]={
+      party:partyCode(current.party,current.caucus),
+      partyLabel:String(current.party||''),
+      incumbent:String(person.name?.official_full || [person.name?.first,person.name?.last].filter(Boolean).join(' ') || 'Current member'),
+      state:current.state,
+      district
+    };
+  }
+  return {updatedAt:generatedAt,source:'UnitedStates/congress-legislators current House membership (CC0)',districts};
 }
 
 async function updateLiveData({outputDir=path.resolve(__dirname,'..','assets','data'), fetchJson=defaultFetchJson}={}) {
   fs.mkdirSync(outputDir,{recursive:true});
 
-  const [watch, open, stateMapResult, districtMapResult] = await Promise.all([
+  const [watch, open, stateMapResult, districtMapResult, legislatorsResult] = await Promise.all([
     fetchGroup({senate:URLS.watchVote.senate,house:URLS.watchVote.house,governors:URLS.watchVote.governors},fetchJson),
     fetchGroup({house:URLS.openAmerica.house,senate:URLS.openAmerica.senate,governor:URLS.openAmerica.governor},fetchJson),
     (async()=>{try{return {ok:true,data:await fetchJson(URLS.censusStates),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})(),
-    (async()=>{try{return {ok:true,data:await fetchJson(URLS.watchVote.districts),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})()
+    (async()=>{try{return {ok:true,data:await fetchJson(URLS.watchVote.districts),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})(),
+    (async()=>{try{return {ok:true,data:await fetchJson(URLS.currentLegislators),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})()
   ]);
 
-  if (!statusFor(watch).ok && !statusFor(open).ok) throw new Error('No election result provider answered; refusing to replace the last deployed snapshot.');
-
   const generatedAt = new Date().toISOString();
-  const payload = buildDashboardPayload({
-    watchVote:{senate:watch.senate.data,house:watch.house.data,governors:watch.governors.data},
-    openAmerica:{house:open.house.data,senate:open.senate.data,governor:open.governor.data},
-    fetchedAt:generatedAt
-  });
-  payload.providerStatus={watchVote:statusFor(watch),openAmerica:statusFor(open)};
-  payload.armedBeforeResults = payload.races.every(r=>!r.providerResultAvailable);
-  payload.staticMirror = {generatedAt, method:'GitHub Actions', refreshTarget:'5 minutes on Nov. 3-5, 2026'};
-  writeJson(path.join(outputDir,'live-results.json'),payload);
+  const watchStatus=statusFor(watch), openStatus=statusFor(open);
+  const resultsFile=path.join(outputDir,'live-results.json');
+  const prior=readJsonIfPresent(resultsFile);
+  let payload;
+
+  if(watchStatus.ok || openStatus.ok) {
+    payload = buildDashboardPayload({
+      watchVote:{senate:watch.senate.data,house:watch.house.data,governors:watch.governors.data},
+      openAmerica:{house:open.house.data,senate:open.senate.data,governor:open.governor.data},
+      fetchedAt:generatedAt
+    });
+  } else if(prior && Array.isArray(prior.races) && prior.races.length) {
+    payload={...prior,updatedAt:prior.updatedAt||generatedAt,mode:'automatic'};
+  } else {
+    payload=buildDashboardPayload({fetchedAt:generatedAt});
+  }
+
+  payload.providerStatus={watchVote:watchStatus,openAmerica:openStatus};
+  payload.armedBeforeResults = !payload.races.some(r=>r&&r.providerResultAvailable);
+  payload.staticMirror = {
+    generatedAt,
+    method:'GitHub Actions',
+    refreshTarget:'daily pre-election; about every 5 minutes Nov. 3-5, 2026',
+    providerReachable:Boolean(watchStatus.ok||openStatus.ok)
+  };
+  writeJson(resultsFile,payload);
 
   const stateFile=path.join(outputDir,'states.geojson');
   if (stateMapResult.ok) writeJson(stateFile,stateMapResult.data);
-  else if (!fs.existsSync(stateFile)) throw new Error(`State map unavailable and no existing fallback exists: ${stateMapResult.error}`);
+  else if (!fs.existsSync(stateFile)) writeJson(stateFile,{type:'FeatureCollection',features:[]});
 
   const districtFile=path.join(outputDir,'house-districts.geojson');
   if (districtMapResult.ok) writeJson(districtFile,districtMapResult.data);
-  else if (!fs.existsSync(districtFile)) throw new Error(`House district map unavailable and no existing fallback exists: ${districtMapResult.error}`);
+  else if (!fs.existsSync(districtFile)) writeJson(districtFile,{type:'FeatureCollection',features:[]});
+
+  const baselineFile=path.join(outputDir,'house-baseline.json');
+  if(legislatorsResult.ok) writeJson(baselineFile,buildHouseBaseline(legislatorsResult.data,generatedAt));
+  else if(!fs.existsSync(baselineFile)) writeJson(baselineFile,{updatedAt:null,source:'Current House baseline unavailable',districts:{}});
 
   const sourceStatus={
     generatedAt,
-    watchVote:statusFor(watch),
-    openAmerica:statusFor(open),
+    watchVote:watchStatus,
+    openAmerica:openStatus,
     maps:{
       censusStates:{ok:stateMapResult.ok,error:stateMapResult.error||''},
       watchVoteDistricts:{ok:districtMapResult.ok,error:districtMapResult.error||''}
+    },
+    projections:{
+      currentHouseBaseline:{ok:legislatorsResult.ok,error:legislatorsResult.error||'',source:URLS.currentLegislators}
     }
   };
   writeJson(path.join(outputDir,'source-status.json'),sourceStatus);
   return {payload,sourceStatus};
 }
 
-function argValue(name) {
-  const ix=process.argv.indexOf(name);
-  return ix>=0 && process.argv[ix+1] ? process.argv[ix+1] : null;
-}
+function argValue(name) { const ix=process.argv.indexOf(name); return ix>=0&&process.argv[ix+1]?process.argv[ix+1]:null; }
 
 if (require.main === module) {
-  const output = argValue('--output-dir');
-  updateLiveData({outputDir:output ? path.resolve(output) : undefined})
-    .then(({payload})=>console.log(`Updated static election data: ${payload.races.length} races at ${payload.updatedAt}`))
+  const output=argValue('--output-dir');
+  updateLiveData({outputDir:output?path.resolve(output):undefined})
+    .then(({payload,sourceStatus})=>console.log(`Updated static election data: ${payload.races.length} races; providers reachable=${sourceStatus.watchVote.ok||sourceStatus.openAmerica.ok}`))
     .catch(error=>{console.error(error.stack||error);process.exitCode=1;});
 }
 
-module.exports={URLS,defaultFetchJson,fetchGroup,statusFor,updateLiveData};
+module.exports={URLS,defaultFetchJson,fetchGroup,statusFor,buildHouseBaseline,updateLiveData};

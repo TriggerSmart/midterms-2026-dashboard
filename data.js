@@ -50,7 +50,7 @@
     ['WI','David Crowley (D) / Tom Tiffany (R)']
   ].map(([state,matchup]) => ({state,matchup}));
 
-  const houseTossups = ['FL-14','FL-22','MI-04','MI-07','MI-10','NY-17','OH-07','OH-09','PA-08','TX-15','TX-35','VA-01'];
+  const houseTossups = ['FL-14','FL-22','IA-02','KY-06','ME-02','MI-04','MI-07','MI-10','MT-01','NC-01','NC-11','NY-17','OH-07','OH-09','PA-01','PA-08','TX-15','TX-35','VA-01'];
 
   const videoPresets = [
     {name:'ABC News Live', channelId:'UCBi2mrWuNuyYy4gbM6fU18Q', type:'channel', website:'https://abcnews.go.com/Live/'},
@@ -103,12 +103,13 @@
     senateSeatsUp:35,
     governorRaces:36,
     startingControl:{
-      house:{rep:219,dem:213,other:0,vacant:3,majority:218},
+      house:{rep:219,dem:214,other:0,vacant:2,majority:218},
       senate:{rep:53,dem:45,other:2,vacant:0,majority:51}
     },
     states, senateBattlegrounds, governorBattlegrounds, houseTossups,
     videoPresets, sources, pollCloseET,
     defaultHeadlines:[
+      {title:'Projection dashboard is loaded now; switch the same map to Live Results when counting begins.', link:'#map'},
       {title:'Automatic election feeds are armed: watch.vote + Open America require no API key or setup.', link:'#data'},
       {title:'Use Source Center to open AP, DDHQ, Ballotpedia, Cook, official state election offices and network coverage.', link:'#sources'},
       {title:'Video windows persist while you move between Dashboard, Map, Races, Sources and Data pages.', link:'#videos'}

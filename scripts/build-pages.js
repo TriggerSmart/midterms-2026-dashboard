@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const out=path.join(root,'_site');
-const files=['index.html','styles.css','data.js','app-core.js','live-sources.js','app.js','sample-results.json','.nojekyll'];
+const files=['index.html','styles.css','data.js','projections.js','app-core.js','live-sources.js','app.js','sample-results.json','.nojekyll'];
 
 fs.rmSync(out,{recursive:true,force:true});
 fs.mkdirSync(out,{recursive:true});

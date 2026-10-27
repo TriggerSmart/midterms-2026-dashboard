@@ -19,7 +19,7 @@
     </div>
     <nav class="main-nav" aria-label="Primary">
       <a href="#dashboard" data-route="dashboard">Dashboard</a>
-      <a href="#map" data-route="map">Live Map</a>
+      <a href="#map" data-route="map">Maps</a>
       <a href="#races" data-route="races">Race Board</a>
       <a href="#sources" data-route="sources">Sources</a>
       <a href="#data" data-route="data">Data Control</a>
@@ -32,7 +32,7 @@
 
   <div class="statusbar">
     <span class="status-dot" id="results-status-dot"></span>
-    <span id="results-status-text">Results: reference/manual mode</span>
+    <span id="results-status-text">Results: automatic sources armed</span>
     <span class="status-divider">•</span>
     <span id="live-clock">--:--:--</span>
     <span class="status-divider">•</span>
@@ -90,6 +90,7 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="projections.js"></script>
   <script src="app-core.js"></script>
   <script src="live-sources.js"></script>
   <script src="app.js"></script>
