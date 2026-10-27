@@ -17,6 +17,13 @@ test('browser app defaults to automatic static results and geographic map data',
   assert.doesNotMatch(app, /class="state-tile/);
 });
 
+test('map failures are visible and offer an in-page retry instead of a blank panel', () => {
+  const app = read('app.js');
+  assert.match(app, /Geographic map unavailable/);
+  assert.match(app, /data-retry-map/);
+  assert.match(app, /Retry map/);
+});
+
 test('project ships GitHub Pages build scripts and all-test package script', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.ok(pkg.scripts['build:pages']);

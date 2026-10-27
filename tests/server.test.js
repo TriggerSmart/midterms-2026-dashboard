@@ -21,8 +21,8 @@ const fixtures = {
   'https://openamerica.io/elections/results.json?year=2026&office=House': {races:{}},
   'https://openamerica.io/elections/results.json?year=2026&office=Senate': {races:{}},
   'https://openamerica.io/elections/results.json?year=2026&office=Governor': {races:{}},
-  'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CNAME&returnGeometry=true&outSR=4326&f=geojson': {type:'FeatureCollection',features:[{type:'Feature',properties:{GEOID:'13',NAME:'Georgia'},geometry:{type:'Polygon',coordinates:[[[-85,30],[-81,30],[-81,35],[-85,35],[-85,30]]]}}]},
-  'https://watch.vote/api/elections/2026/districts/national': {type:'FeatureCollection',features:[]}
+  'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.02&f=geojson': {type:'FeatureCollection',features:[{type:'Feature',properties:{GEOID:'13',NAME:'Georgia'},geometry:{type:'Polygon',coordinates:[[[-85,30],[-81,30],[-81,35],[-85,35],[-85,30]]]}}]},
+  'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CCD120%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.01&f=geojson': {type:'FeatureCollection',features:[]}
 };
 
 async function withServer(fn) {
@@ -58,7 +58,7 @@ test('state map endpoint proxies Census GeoJSON through same-origin localhost', 
   });
 });
 
-test('house district map endpoint proxies watch.vote national GeoJSON', async () => {
+test('house district map endpoint proxies Census 120th Congress GeoJSON', async () => {
   await withServer(async port => {
     const r=await requestJson(port,'/api/map/house-districts');
     assert.equal(r.status,200);

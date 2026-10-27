@@ -6,7 +6,8 @@
   const L = window.MidtermsLiveSources;
   if (!D || !P || !C || !L) throw new Error('Midterms data/projections/core/live-source helpers not loaded');
 
-  const STORE_KEY = 'midterms2026.commandCenter.v2';
+  const STORE_KEY = 'midterms2026.commandCenter.v3';
+  const BUILD_ID = '2026.10.26-mapfix';
   const qs = (s, root=document) => root.querySelector(s);
   const qsa = (s, root=document) => [...root.querySelectorAll(s)];
   const esc = (v='') => String(v).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -26,8 +27,14 @@
   });
   const CIVIQ_HOUSE_MEMBERS='https://civdotiq.org/api/download/congress-members?format=json';
   const GEO_FALLBACKS = Object.freeze({
-    states:'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/states.json',
-    districts:'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/cd120.json'
+    states:[
+      'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.02&f=geojson',
+      'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/states.json'
+    ],
+    districts:[
+      'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CCD120%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.01&f=geojson',
+      'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/cd120.json'
+    ]
   });
   const OPEN_AMERICA = Object.freeze({
     house:'https://openamerica.io/elections/results.json?year=2026&office=House',
@@ -144,7 +151,7 @@
   }
 
   function hasGeoFeatures(geo){return Boolean(geo&&Array.isArray(geo.features)&&geo.features.length);}
-  async function fetchGeometryWithFallback(localPath,fallbackUrl,label){
+  async function fetchGeometryWithFallback(localPath,fallbackUrls,label){
     try{
       const r=await fetchWithTimeout(`${localPath}?v=${Date.now()}`,{},18000);
       if(!r.ok)throw new Error(`${label} HTTP ${r.status}`);
@@ -152,12 +159,19 @@
       if(hasGeoFeatures(local))return local;
       throw new Error(label==='State'?'Bundled state geometry is empty':'Bundled district geometry is empty');
     }catch(localErr){
-      console.warn(`${label} local geometry unavailable; using public Census-derived fallback`,localErr);
-      const r=await fetchWithTimeout(`${fallbackUrl}?v=${Date.now()}`,{credentials:'omit'},25000);
-      if(!r.ok)throw new Error(`${label} fallback HTTP ${r.status}`);
-      const remote=await r.json();
-      if(!hasGeoFeatures(remote))throw new Error(`${label} fallback returned no geographic features`);
-      return remote;
+      console.warn(`${label} local geometry unavailable; trying public geography fallbacks`,localErr);
+      const errors=[];
+      for(const fallbackUrl of Array.isArray(fallbackUrls)?fallbackUrls:[fallbackUrls]){
+        try{
+          const sep=fallbackUrl.includes('?')?'&':'?';
+          const r=await fetchWithTimeout(`${fallbackUrl}${sep}v=${Date.now()}`,{credentials:'omit'},30000);
+          if(!r.ok)throw new Error(`HTTP ${r.status}`);
+          const remote=await r.json();
+          if(!hasGeoFeatures(remote))throw new Error('returned no geographic features');
+          return remote;
+        }catch(err){errors.push(`${new URL(fallbackUrl).hostname}: ${err.message}`);}
+      }
+      throw new Error(`${label} geography failed from deployed data and all fallbacks (${errors.join(' | ')})`);
     }
   }
   async function getStateGeometry(){
@@ -301,7 +315,13 @@
         if(route()!=='map'&&compact) location.hash='#map'; else renderPage();
       }));
     } catch(err){
-      el.innerHTML=`<div class="map-error"><strong>Geographic map unavailable.</strong><br/>${esc(err.message)}<br/><span>The site tried both its deployed geometry and the public Census-derived geography fallback. Re-run the Pages workflow or check network access if both are unavailable.</span></div>`;
+      el.innerHTML=`<div class="map-error"><strong>Geographic map unavailable.</strong><br/>${esc(err.message)}<br/><span>The site tried both its deployed geometry and the official U.S. Census TIGERweb 2026 geography service.</span><div class="button-row"><button class="btn btn-small btn-accent" type="button" data-retry-map>Retry map</button><a class="btn btn-small btn-ghost" href="https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_main.html" target="_blank" rel="noopener">Open Census TIGERweb ↗</a></div></div>`;
+      const retry=qs('[data-retry-map]',el);
+      if(retry)retry.addEventListener('click',()=>{
+        if(layer==='house'){districtGeo=null;districtGeoPromise=null;}else{stateGeo=null;stateGeoPromise=null;}
+        el.innerHTML='<div class="map-loading">Retrying official Census geography…</div>';
+        renderGeoMapElement(el);
+      });
     }
   }
   function hydrateGeoMaps(){qsa('[data-geo-map]',qs('#page-root')).forEach(renderGeoMapElement);}
@@ -605,7 +625,8 @@
   function initGlobalEvents(){window.addEventListener('hashchange',renderPage);qs('#open-video-panel-btn').addEventListener('click',openVideoPanel);qs('#close-video-panel-btn').addEventListener('click',closeVideoPanel);qs('#add-video-panel').addEventListener('click',e=>{if(e.target.id==='add-video-panel')closeVideoPanel();});qs('#add-video-right-btn').addEventListener('click',()=>addUserVideo('right'));qs('#add-video-float-btn').addEventListener('click',()=>addUserVideo('float'));qs('#refresh-news-btn').addEventListener('click',()=>fetchNews(true));document.addEventListener('keydown',e=>{if(e.key==='Escape')closeVideoPanel();});}
 
   function boot(){
-    if(!location.hash)history.replaceState(null,'','#dashboard');initGlobalEvents();
+        if(!location.hash)history.replaceState(null,'','#dashboard');initGlobalEvents();
+        const build=qs('#build-id');if(build)build.textContent=`Build ${BUILD_ID}`;
     const warning=qs('#file-video-warning');if(warning&&location.protocol==='file:'){warning.classList.remove('hidden');warning.innerHTML='<strong>Direct-file mode:</strong> this build is designed for GitHub Pages. Publish the repository with the included Pages workflow (recommended), or use the optional local launcher while testing. GitHub Pages requires no database or API key.';}
     configurePolling();renderPage();renderVideoWorkspace();renderTicker();renderVideoManager();setResultsStatus();updateClock();setInterval(updateClock,1000);
     if(state.settings.automaticResults)setTimeout(()=>fetchAutomaticResults(false),150);

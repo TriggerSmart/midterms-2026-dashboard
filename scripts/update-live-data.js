@@ -16,7 +16,12 @@ const URLS = Object.freeze({
     senate:'https://openamerica.io/elections/results.json?year=2026&office=Senate',
     governor:'https://openamerica.io/elections/results.json?year=2026&office=Governor'
   },
-  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CNAME&returnGeometry=true&outSR=4326&f=geojson',
+  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.02&f=geojson',
+  censusDistricts:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CCD120%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.01&f=geojson',
+  geometryMirrors:{
+    states:'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/states.json',
+    districts:'https://cdn.jsdelivr.net/gh/seifertben/election-map@main/public/data/cd120.json'
+  },
   currentLegislators:'https://unitedstates.github.io/congress-legislators/legislators-current.json'
 });
 
@@ -51,6 +56,19 @@ function statusFor(group) {
     stale:false,
     endpoints:Object.fromEntries(Object.entries(group).map(([k,v])=>[k,{ok:v.ok,error:v.error||'',url:v.url}]))
   };
+}
+
+function hasGeoFeatures(value){return Boolean(value&&Array.isArray(value.features)&&value.features.length);}
+async function fetchGeometry(primary, mirror, fetchJson) {
+  const errors=[];
+  for(const [source,url] of [['census',primary],['mirror',mirror]]){
+    try{
+      const data=await fetchJson(url);
+      if(!hasGeoFeatures(data))throw new Error('returned no features');
+      return {ok:true,data,error:'',source,url};
+    }catch(error){errors.push(`${source}: ${String(error.message||error)}`);}
+  }
+  return {ok:false,data:null,error:errors.join(' | '),source:'',url:''};
 }
 
 function writeJson(file, value) { fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n'); }
@@ -89,8 +107,8 @@ async function updateLiveData({outputDir=path.resolve(__dirname,'..','assets','d
   const [watch, open, stateMapResult, districtMapResult, legislatorsResult] = await Promise.all([
     fetchGroup({senate:URLS.watchVote.senate,house:URLS.watchVote.house,governors:URLS.watchVote.governors},fetchJson),
     fetchGroup({house:URLS.openAmerica.house,senate:URLS.openAmerica.senate,governor:URLS.openAmerica.governor},fetchJson),
-    (async()=>{try{return {ok:true,data:await fetchJson(URLS.censusStates),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})(),
-    (async()=>{try{return {ok:true,data:await fetchJson(URLS.watchVote.districts),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})(),
+    fetchGeometry(URLS.censusStates,URLS.geometryMirrors.states,fetchJson),
+    fetchGeometry(URLS.censusDistricts,URLS.geometryMirrors.districts,fetchJson),
     (async()=>{try{return {ok:true,data:await fetchJson(URLS.currentLegislators),error:''};}catch(error){return {ok:false,data:null,error:String(error.message||error)};}})()
   ]);
 
@@ -139,8 +157,8 @@ async function updateLiveData({outputDir=path.resolve(__dirname,'..','assets','d
     watchVote:watchStatus,
     openAmerica:openStatus,
     maps:{
-      censusStates:{ok:stateMapResult.ok,error:stateMapResult.error||''},
-      watchVoteDistricts:{ok:districtMapResult.ok,error:districtMapResult.error||''}
+      states:{ok:stateMapResult.ok,error:stateMapResult.error||'',source:stateMapResult.source||'',url:stateMapResult.url||''},
+      districts:{ok:districtMapResult.ok,error:districtMapResult.error||'',source:districtMapResult.source||'',url:districtMapResult.url||''}
     },
     projections:{
       currentHouseBaseline:{ok:legislatorsResult.ok,error:legislatorsResult.error||'',source:URLS.currentLegislators}
@@ -159,4 +177,4 @@ if (require.main === module) {
     .catch(error=>{console.error(error.stack||error);process.exitCode=1;});
 }
 
-module.exports={URLS,defaultFetchJson,fetchGroup,statusFor,buildHouseBaseline,updateLiveData};
+module.exports={URLS,defaultFetchJson,fetchGroup,statusFor,hasGeoFeatures,fetchGeometry,buildHouseBaseline,updateLiveData};

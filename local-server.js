@@ -20,14 +20,14 @@ const URLS = Object.freeze({
     senate:'https://watch.vote/api/elections/2026/results?office=senate',
     house:'https://watch.vote/api/elections/2026/results?office=house',
     governors:'https://watch.vote/api/elections/2026/results?office=governors',
-    districts:'https://watch.vote/api/elections/2026/districts/national'
+    districts:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CCD120%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.01&f=geojson'
   },
   openAmerica: {
     house:'https://openamerica.io/elections/results.json?year=2026&office=House',
     senate:'https://openamerica.io/elections/results.json?year=2026&office=Senate',
     governor:'https://openamerica.io/elections/results.json?year=2026&office=Governor'
   },
-  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CNAME&returnGeometry=true&outSR=4326&f=geojson'
+  censusStates:'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.02&f=geojson'
 });
 
 function safeFilePath(requestUrl, rootDir=ROOT) {
@@ -147,8 +147,8 @@ function createDashboardServer({rootDir=ROOT, fetchJsonImpl=defaultFetchJson, di
       return jsonResponse(res,200,hit.data,{'X-Data-Source':'U.S. Census Bureau TIGERweb 2026','X-Cache-Stale':String(Boolean(hit.stale))});
     }
     if (pathname === '/api/map/house-districts') {
-      const hit=await cachedFetch('watchvote-2026-house-districts',URLS.watchVote.districts,24*60*60*1000);
-      return jsonResponse(res,200,hit.data,{'X-Data-Source':'watch.vote / Census TIGERweb 120th Congressional Districts','X-Cache-Stale':String(Boolean(hit.stale))});
+      const hit=await cachedFetch('census-2026-house-districts',URLS.watchVote.districts,24*60*60*1000);
+      return jsonResponse(res,200,hit.data,{'X-Data-Source':'U.S. Census Bureau TIGERweb 120th Congressional Districts','X-Cache-Stale':String(Boolean(hit.stale))});
     }
     return false;
   }

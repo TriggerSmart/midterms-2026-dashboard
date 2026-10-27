@@ -85,10 +85,10 @@ test('projection map does not show the ambiguous overview layer', () => {
   assert.match(app, /activeMode==='live'\?`<button class="map-layer-btn/);
 });
 
-test('geographic maps fall back to a public Census-derived CORS mirror when bundled geometry is empty', () => {
+test('geographic maps fall back to official Census TIGERweb when bundled geometry is empty', () => {
   const app = read('app.js');
-  assert.match(app, /seifertben\/election-map.*public\/data\/states\.json/);
-  assert.match(app, /seifertben\/election-map.*public\/data\/cd120\.json/);
+  assert.match(app, /TIGERweb\/State_County\/MapServer\/0\/query/);
+  assert.match(app, /TIGERweb\/Legislative\/MapServer\/0\/query/);
   assert.match(app, /hasGeoFeatures/);
   assert.match(app, /Bundled state geometry is empty/);
   assert.match(app, /Bundled district geometry is empty/);

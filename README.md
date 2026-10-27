@@ -65,8 +65,12 @@ The map is a real geographic SVG map, not a square/cartogram layout.
 - State/Senate/Governor layers use U.S. Census geography.
 - House uses 120th Congressional District geography for the 2026 election cycle.
 - The deployment workflow downloads the current geometry into `assets/data/` before publishing.
-- If a fresh repository still contains the intentionally tiny placeholder geometry files before the first successful workflow refresh, the browser automatically falls back to the committed Census-derived `states.json` / `cd120.json` geography from the open-source `seifertben/election-map` repository through jsDelivr. No setup or URL entry is required.
+- If a fresh repository still contains the intentionally tiny placeholder geometry files before the first successful workflow refresh, the browser first queries the official Census TIGERweb 2026 REST layers directly. If that path is unavailable, it then tries the committed Census-derived `states.json` / `cd120.json` geography from the open-source `seifertben/election-map` repository through jsDelivr. No setup or URL entry is required.
 - All local map reads are repository-relative, so project Pages URLs work from a subdirectory.
+
+The fixed build shows **`Build 2026.10.26-mapfix`** in the top status bar. If that marker is missing after you deploy this version, the browser is still loading an older cached release. The CSS and JavaScript files now carry explicit version query strings so a normal reload after the GitHub Pages Action finishes pulls the new dashboard code.
+
+If all map sources fail, the panel now displays a visible diagnostic and **Retry map** button instead of leaving an empty black rectangle.
 
 Available projection layers:
 
