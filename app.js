@@ -7,7 +7,7 @@
   if (!D || !P || !C || !L) throw new Error('Midterms data/projections/core/live-source helpers not loaded');
 
   const STORE_KEY = 'midterms2026.commandCenter.v3';
-  const BUILD_ID = '2026.10.26-mapfix';
+  const BUILD_ID = '2026.10.26-controlfix';
   const qs = (s, root=document) => root.querySelector(s);
   const qsa = (s, root=document) => [...root.querySelectorAll(s)];
   const esc = (v='') => String(v).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -25,7 +25,10 @@
     districts:'assets/data/house-districts.geojson',
     houseBaseline:'assets/data/house-baseline.json'
   });
-  const CIVIQ_HOUSE_MEMBERS='https://civdotiq.org/api/download/congress-members?format=json';
+  const HOUSE_BASELINE_FALLBACKS=Object.freeze([
+    {url:'https://cdn.jsdelivr.net/gh/unitedstates/congress-legislators@gh-pages/legislators-current.json',kind:'legislators',label:'UnitedStates/congress-legislators via jsDelivr'},
+    {url:'https://civdotiq.org/api/download/congress-members?format=json',kind:'civiq',label:'CIV.IQ public House membership'}
+  ]);
   const GEO_FALLBACKS = Object.freeze({
     states:[
       'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=GEOID%2CSTATE%2CBASENAME%2CNAME&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.02&f=geojson',
@@ -192,21 +195,37 @@
     if(p.includes('independent'))return'I';
     return'O';
   }
-  function buildBrowserHouseBaseline(payload){
+  function buildBrowserHouseBaseline(payload,sourceLabel='Public current House membership'){
     const districts={};
     const rows=Array.isArray(payload)?payload:Array.isArray(payload&&payload.data)?payload.data:[];
+    const today=new Date().toISOString().slice(0,10);
     for(const person of rows){
-      if(String(person.chamber||'').toLowerCase()!=='house')continue;
-      const stateCode=String(person.state||'').toUpperCase();
-      if(!/^[A-Z]{2}$/.test(stateCode)||person.district==null||person.district==='')continue;
-      const n=Number(person.district);if(!Number.isFinite(n))continue;
+      let stateCode='',districtRaw=null,party='',partyLabel='',incumbent='Current member';
+      if(Array.isArray(person&&person.terms)){
+        const term=[...person.terms].reverse().find(t=>t&&t.type==='rep'&&String(t.end||'9999')>today);
+        if(!term)continue;
+        stateCode=String(term.state||'').toUpperCase();
+        districtRaw=term.district;
+        party=browserPartyCode(term.caucus||term.party);
+        partyLabel=String(term.party||term.caucus||'');
+        incumbent=String(person.name&&person.name.official_full || [person.name&&person.name.first,person.name&&person.name.last].filter(Boolean).join(' ') || 'Current member');
+      }else{
+        if(String(person&&person.chamber||'').toLowerCase()!=='house')continue;
+        stateCode=String(person.state||'').toUpperCase();
+        districtRaw=person.district;
+        party=browserPartyCode(person.party);
+        partyLabel=String(person.party||'');
+        incumbent=String(person.fullName||person.name||'Current member');
+      }
+      if(!/^[A-Z]{2}$/.test(stateCode)||districtRaw==null||districtRaw==='')continue;
+      const n=Number(districtRaw);if(!Number.isFinite(n))continue;
       const district=String(n).padStart(2,'0'),key=`${stateCode}-${district}`;
-      districts[key]={party:browserPartyCode(person.party),partyLabel:String(person.party||''),incumbent:String(person.fullName||person.name||'Current member'),state:stateCode,district};
+      districts[key]={party,partyLabel,incumbent,state:stateCode,district};
     }
-    // Two known 119th-Congress vacancies can be absent from current-member lists. TX-23
-    // is already in the competitive forecast table; FL-20 is a safe Democratic baseline.
+    // Current vacancies can be absent from member lists. TX-23 is in the competitive
+    // forecast table; FL-20 is the remaining safe Democratic seat baseline.
     if(!districts['FL-20'])districts['FL-20']={party:'D',partyLabel:'Democratic baseline',incumbent:'Vacant seat',state:'FL',district:'20'};
-    return {updatedAt:new Date().toISOString(),source:'Current House membership fallback — CIV.IQ public CORS dataset',districts,_loaded:true};
+    return {updatedAt:new Date().toISOString(),source:`Current House membership fallback — ${sourceLabel}`,districts,_loaded:true};
   }
   async function getHouseBaseline(){
     if(houseBaseline&&houseBaseline._loaded&&Object.keys(houseBaseline.districts||{}).length) return houseBaseline;
@@ -215,16 +234,21 @@
         const r=await fetchWithTimeout(`${DATA_PATHS.houseBaseline}?v=${Date.now()}`,{},12000);
         if(r.ok){const j=await r.json();const local={...j,_loaded:true,districts:j&&j.districts||{}};if(Object.keys(local.districts).length){houseBaseline=local;return houseBaseline;}}
       }catch(err){console.warn('Deployed House baseline unavailable',err);}
-      try{
-        const r=await fetchWithTimeout(`${CIVIQ_HOUSE_MEMBERS}&v=${Date.now()}`,{credentials:'omit'},15000);
-        if(!r.ok)throw new Error(`CIV.IQ House baseline HTTP ${r.status}`);
-        houseBaseline=buildBrowserHouseBaseline(await r.json());
-        return houseBaseline;
-      }catch(err){
-        console.warn('Current House membership fallback unavailable',err);
-        houseBaseline={_loaded:true,source:'Current House membership fallback unavailable',districts:{'FL-20':{party:'D',partyLabel:'Democratic baseline',incumbent:'Vacant seat',state:'FL',district:'20'}}};
-        return houseBaseline;
+      const errors=[];
+      for(const fallback of HOUSE_BASELINE_FALLBACKS){
+        try{
+          const sep=fallback.url.includes('?')?'&':'?';
+          const r=await fetchWithTimeout(`${fallback.url}${sep}v=${Date.now()}`,{credentials:'omit'},18000);
+          if(!r.ok)throw new Error(`HTTP ${r.status}`);
+          const built=buildBrowserHouseBaseline(await r.json(),fallback.label);
+          if(Object.keys(built.districts||{}).length<400)throw new Error(`only ${Object.keys(built.districts||{}).length} districts returned`);
+          houseBaseline=built;
+          return houseBaseline;
+        }catch(err){errors.push(`${fallback.label}: ${err.message}`);}
       }
+      console.warn('Current House membership fallbacks unavailable',errors.join(' | '));
+      houseBaseline={_loaded:true,source:'Current House membership fallback unavailable',districts:{'FL-20':{party:'D',partyLabel:'Democratic baseline',incumbent:'Vacant seat',state:'FL',district:'20'}}};
+      return houseBaseline;
     })().finally(()=>{houseBaselinePromise=null;});
     return houseBaselinePromise;
   }
@@ -277,13 +301,17 @@
       const features=Array.isArray(geo&&geo.features)?geo.features:[];
       if(!features.length) throw new Error('Map geometry has not been published yet. Run the GitHub Pages workflow once to populate the geographic files.');
       const paths=[];
+      let houseDistricts=0,classifiedHouseDistricts=0;
       for(const feature of features){
         const path=C.geoFeatureToPath(feature,width,height);if(!path)continue;
         if(layer==='house'){
           const key=C.districtKeyFromGeoFeature(feature,D.states);if(!key)continue;
           const code=key.split('-')[0];
+          if(code==='DC')continue;
+          houseDistricts+=1;
           if(mode==='projection'){
             const pr=projectionForHouse(key),party=pr?.party||'U',rating=pr?.rating||'';
+            if(pr)classifiedHouseDistricts+=1;
             const title=pr?`${pr.displayKey||key}: ${rating} • ${party==='D'?'Democratic':party==='R'?'Republican':'Toss-up/Other'}${pr.incumbent?` • current/incumbent: ${pr.incumbent}`:''}`:`${key}: projection baseline pending`;
             paths.push(`<path d="${path}" class="${mapRegionClass(party,false,rating==='Toss Up',state.selectedRaceKey===key,rating)}" data-map-race="${key}" data-map-state="${code}"><title>${esc(title)}</title></path>`);
           }else{
@@ -305,7 +333,10 @@
           }
         }
       }
-      el.innerHTML=`<svg class="geo-map" viewBox="0 0 ${width} ${height}" role="img" aria-label="Interactive 2026 United States ${mode==='projection'?'projection':'live results'} map">${paths.join('')}</svg>`;
+      const coverage=mode==='projection'&&layer==='house'
+        ? `<div class="map-coverage ${classifiedHouseDistricts>=435?'complete':'incomplete'}"><strong>${classifiedHouseDistricts>=435?'435/435 districts classified':`${classifiedHouseDistricts}/${houseDistricts||435} districts classified`}</strong><span>${classifiedHouseDistricts>=435?'All voting House districts have a projection/baseline color.':'Safe-seat baseline is still loading; competitive ratings are shown now and remaining districts will fill automatically.'}</span></div>`
+        : '';
+      el.innerHTML=`${coverage}<svg class="geo-map" viewBox="0 0 ${width} ${height}" role="img" aria-label="Interactive 2026 United States ${mode==='projection'?'projection':'live results'} map">${paths.join('')}</svg>`;
       qsa('[data-map-state]',el).forEach(region=>region.addEventListener('click',()=>{
         state.selectedState=region.dataset.mapState;
         state.selectedRaceKey=region.dataset.mapRace||null;
@@ -360,6 +391,23 @@
     }).join('');
   }
 
+  function controlForecastCard(type){
+    const forecast=P.controlForecast&&P.controlForecast[type];
+    if(!forecast)return'';
+    const isD=forecast.favored==='D';
+    const chamber=type==='house'?'House Control':'Senate Control';
+    const threshold=type==='house'?'218 seats needed':'51 seats needed • 50-50 gives GOP the VP tiebreak';
+    const updated=fmtDateTime(P.controlForecast.asOf);
+    return `<section class="control-forecast-card ${isD?'dem-control':'rep-control'}">
+      <div class="control-forecast-kicker">${chamber} • Model Projection</div>
+      <div class="control-forecast-verdict">${isD?'PROJECTED DEMOCRATIC CONTROL':'PROJECTED REPUBLICAN CONTROL'}</div>
+      <div class="control-probability-row"><div class="control-party dem"><span>DEMOCRATS</span><strong>${forecast.demProbability}%</strong></div><div class="control-party rep"><span>REPUBLICANS</span><strong>${forecast.repProbability}%</strong></div></div>
+      <div class="control-probability-bar"><span class="dem" style="width:${forecast.demProbability}%"></span><span class="rep" style="width:${forecast.repProbability}%"></span></div>
+      <div class="control-seat-line"><strong>${forecast.projectedDemSeats} D</strong><span>projected seats</span><strong>${forecast.projectedRepSeats} R</strong></div>
+      <div class="control-forecast-source">${threshold} • DDHQ model updated ${esc(updated)} • <a href="${esc(P.controlForecast.source.url)}" target="_blank" rel="noopener">source ↗</a></div>
+    </section>`;
+  }
+
   function projectionBalanceCard(type){
     const cfg=type==='house'
       ? {title:'Projected U.S. House',d:P.summary.house.dem,r:P.summary.house.rep,t:P.summary.house.tossup,total:P.summary.house.total,source:P.meta.houseSource}
@@ -389,6 +437,7 @@
     const projectionRows=topProjectionRows();
     return `<div class="page-heading"><div><div class="eyebrow">NOVEMBER 3, 2026 • PROJECTIONS + LIVE RESULTS</div><h1>2026 Midterms Command Center</h1><p>Pre-election forecast dashboard now; election-night live vote command center automatically when official counting data begins.</p></div><div class="heading-actions"><a class="btn btn-accent" href="#map">Open interactive map</a><a class="btn btn-ghost" href="#races">Race board</a><button class="btn btn-ghost" data-open-video>+ Add video</button></div></div>
       <div class="projection-banner"><div><strong>Projection mode is populated now.</strong><span>House consensus, Senate ratings and governor ratings are visually separated from actual results.</span></div><div class="projection-banner-actions"><button class="btn btn-small btn-blue" data-map-jump-mode="projection">Projection Map</button><button class="btn btn-small btn-ghost" data-map-jump-mode="live">Live Results Map</button></div></div>
+      <div class="control-forecast-strip">${controlForecastCard('house')}${controlForecastCard('senate')}</div>
       <div class="metrics-strip"><div class="metric-card"><span>House consensus</span><strong><b class="text-blue">${P.summary.house.dem} D</b> / <b class="text-red">${P.summary.house.rep} R</b></strong><small>${P.summary.house.tossup} toss-ups • 218 majority</small></div><div class="metric-card"><span>Senate consensus</span><strong><b class="text-blue">${P.summary.senate.demCaucus} D-caucus</b></strong><small>${P.summary.senate.rep} R • ${P.summary.senate.tossup} toss-ups</small></div><div class="metric-card"><span>Live feed status</span><strong>${active}</strong><small>races reporting • ${called} called</small></div><div class="metric-card"><span>Automatic refresh</span><strong class="metric-small">${esc(last)}</strong><small>Browser checks every ${state.settings.pollSeconds}s</small></div></div>
       <div class="projection-grid">${projectionBalanceCard('house')}${projectionBalanceCard('senate')}${projectionBalanceCard('governor')}</div>
       <div class="dashboard-grid">

@@ -169,3 +169,14 @@ node scripts/build-pages.js
 ```
 
 `npm run refresh:data` performs real network requests and is primarily intended for GitHub Actions or a machine with internet access.
+
+## Chamber control projection indicators
+
+The dashboard shows two high-visibility control cards above the normal metrics:
+
+- **House Control** — current DDHQ model probability and projected seat count for Democrats vs. Republicans.
+- **Senate Control** — current DDHQ model probability and projected seat count for Democrats vs. Republicans.
+
+These are **model projections, not race calls or counted votes**. The source and forecast timestamp are displayed on each card.
+
+The House projection map is designed to classify **all 435 voting districts**. The 89 non-safe districts use the 270toWin consensus ratings; all remaining districts are filled as safe D/R from the current House-party baseline. If that generated baseline is missing, the browser now falls back to the public `unitedstates/congress-legislators` dataset through jsDelivr. A coverage banner above the map reports whether all 435 voting districts are classified.

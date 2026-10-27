@@ -85,6 +85,12 @@
       senate:Object.freeze({demCaucus:49,dem:47,ind:2,rep:46,tossup:5,total:100,majority:51}),
       governor:Object.freeze({dem:23,rep:22,tossup:5,total:50})
     }),
+    controlForecast:Object.freeze({
+      asOf:'2026-10-26T14:42:00-04:00',
+      source:Object.freeze({name:'Decision Desk HQ 2026 Forecast',url:'https://votes.decisiondeskhq.com/forecast/2026'}),
+      house:Object.freeze({favored:'D',demProbability:79,repProbability:21,projectedDemSeats:238,projectedRepSeats:197,majority:218,label:'Projected Democratic Control'}),
+      senate:Object.freeze({favored:'D',demProbability:57,repProbability:43,projectedDemSeats:51,projectedRepSeats:49,majority:51,label:'Projected Democratic Control'})
+    }),
     ratingStrength,
     senate:Object.freeze(senate),
     governor:Object.freeze(governor),

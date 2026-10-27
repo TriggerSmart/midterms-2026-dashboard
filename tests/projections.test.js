@@ -93,3 +93,33 @@ test('geographic maps fall back to official Census TIGERweb when bundled geometr
   assert.match(app, /Bundled state geometry is empty/);
   assert.match(app, /Bundled district geometry is empty/);
 });
+
+
+test('projection snapshot exposes obvious DDHQ chamber-control forecast probabilities', () => {
+  const P = require('../projections.js');
+  assert.equal(P.controlForecast.house.demProbability, 79);
+  assert.equal(P.controlForecast.house.repProbability, 21);
+  assert.equal(P.controlForecast.house.projectedDemSeats, 238);
+  assert.equal(P.controlForecast.senate.demProbability, 57);
+  assert.equal(P.controlForecast.senate.repProbability, 43);
+  assert.equal(P.controlForecast.senate.projectedDemSeats, 51);
+  assert.match(P.controlForecast.source.url, /decisiondeskhq\.com/);
+});
+
+test('House projection browser fallback can populate safe seats from public current-legislator data', () => {
+  const app = read('app.js');
+  assert.match(app, /cdn\.jsdelivr\.net\/gh\/unitedstates\/congress-legislators@gh-pages\/legislators-current\.json/);
+  assert.match(app, /person\.terms/);
+  assert.match(app, /435\/435 districts classified/);
+});
+
+test('dashboard puts high-visibility House and Senate control indicators above the normal metrics', () => {
+  const app = read('app.js');
+  const css = read('styles.css');
+  assert.match(app, /PROJECTED DEMOCRATIC CONTROL/);
+  assert.match(app, /control-forecast-strip/);
+  assert.match(app, /House Control/);
+  assert.match(app, /Senate Control/);
+  assert.match(css, /control-forecast-strip/);
+  assert.match(css, /control-forecast-card/);
+});
