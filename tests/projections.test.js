@@ -123,3 +123,15 @@ test('dashboard puts high-visibility House and Senate control indicators above t
   assert.match(css, /control-forecast-strip/);
   assert.match(css, /control-forecast-card/);
 });
+
+
+test('persistent top chamber-control strip stays visible across dashboard routes', () => {
+  const html = read('index.html');
+  const app = read('app.js');
+  const css = read('styles.css');
+  assert.match(html, /id="chamber-control-sticky"/);
+  assert.match(app, /renderStickyChamberControl/);
+  assert.match(app, /PROJECTED D CONTROL/);
+  assert.match(css, /\.chamber-control-sticky/);
+  assert.match(css, /position:sticky/);
+});

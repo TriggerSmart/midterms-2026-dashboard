@@ -38,10 +38,10 @@ test('browser geometry fallbacks use official Census TIGERweb 2026 state and 120
 
 test('published assets are cache-busted so GitHub Pages updates cannot leave an old dashboard script loaded', () => {
   const html = read('index.html');
-  assert.match(html, /styles\.css\?v=20261026-controlfix/);
-  assert.match(html, /projections\.js\?v=20261026-controlfix/);
-  assert.match(html, /app\.js\?v=20261026-controlfix/);
-  assert.match(html, /2026\.10\.26-controlfix/);
+  assert.match(html, /styles\.css\?v=20261026-stickycontrol/);
+  assert.match(html, /projections\.js\?v=20261026-stickycontrol/);
+  assert.match(html, /app\.js\?v=20261026-stickycontrol/);
+  assert.match(html, /2026\.10\.26-stickycontrol/);
 });
 
 test('browser loads live-source normalizers for direct CORS Open America refreshes', () => {

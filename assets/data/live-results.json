@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-26T23:46:44.590Z",
+  "updatedAt": "2026-10-27T00:43:08.585Z",
   "mode": "automatic",
   "chamber": {
     "house": {
@@ -75,7 +75,7 @@
   },
   "armedBeforeResults": true,
   "staticMirror": {
-    "generatedAt": "2026-10-26T23:46:44.590Z",
+    "generatedAt": "2026-10-27T00:43:08.585Z",
     "method": "GitHub Actions",
     "refreshTarget": "daily pre-election; about every 5 minutes Nov. 3-5, 2026",
     "providerReachable": false

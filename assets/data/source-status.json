@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T23:46:44.590Z",
+  "generatedAt": "2026-10-27T00:43:08.585Z",
   "watchVote": {
     "ok": false,
     "stale": false,
@@ -43,13 +43,17 @@
     }
   },
   "maps": {
-    "censusStates": {
+    "states": {
       "ok": false,
-      "error": "fetch failed"
+      "error": "census: fetch failed | mirror: fetch failed",
+      "source": "",
+      "url": ""
     },
-    "watchVoteDistricts": {
+    "districts": {
       "ok": false,
-      "error": "fetch failed"
+      "error": "census: fetch failed | mirror: fetch failed",
+      "source": "",
+      "url": ""
     }
   },
   "projections": {

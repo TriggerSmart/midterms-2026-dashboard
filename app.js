@@ -7,7 +7,7 @@
   if (!D || !P || !C || !L) throw new Error('Midterms data/projections/core/live-source helpers not loaded');
 
   const STORE_KEY = 'midterms2026.commandCenter.v3';
-  const BUILD_ID = '2026.10.26-controlfix';
+  const BUILD_ID = '2026.10.26-stickycontrol';
   const qs = (s, root=document) => root.querySelector(s);
   const qsa = (s, root=document) => [...root.querySelectorAll(s)];
   const esc = (v='') => String(v).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -408,6 +408,21 @@
     </section>`;
   }
 
+
+  function renderStickyChamberControl(){
+    const el=qs('#chamber-control-sticky');
+    if(!el||!P.controlForecast)return;
+    const item=(type,label)=>{
+      const f=P.controlForecast[type];
+      if(!f)return'';
+      const d=f.demProbability||0,r=f.repProbability||0,favored=f.favored==='R'?'R':'D';
+      const verdict=favored==='D'?'PROJECTED D CONTROL':'PROJECTED R CONTROL';
+      const seats=type==='house'?`${f.projectedDemSeats}D–${f.projectedRepSeats}R`:`${f.projectedDemSeats}D–${f.projectedRepSeats}R`;
+      return `<div class="sticky-control-item ${favored==='D'?'fav-d':'fav-r'}"><div class="sticky-control-label">${label}</div><div class="sticky-control-verdict">${verdict}</div><div class="sticky-control-split"><span class="d">D ${d}%</span><span class="bar"><i class="d" style="width:${d}%"></i><i class="r" style="width:${r}%"></i></span><span class="r">R ${r}%</span></div><div class="sticky-control-seats">${seats}</div></div>`;
+    };
+    el.innerHTML=`<div class="sticky-control-title">CONTROL OUTLOOK <span>projection</span></div>${item('house','HOUSE')}${item('senate','SENATE')}`;
+  }
+
   function projectionBalanceCard(type){
     const cfg=type==='house'
       ? {title:'Projected U.S. House',d:P.summary.house.dem,r:P.summary.house.rep,t:P.summary.house.tossup,total:P.summary.house.total,source:P.meta.houseSource}
@@ -552,7 +567,7 @@
   }
 
   function renderPage(){
-    setActiveNav();const r=route(),root=qs('#page-root');root.innerHTML=r==='dashboard'?dashboardPage():r==='map'?mapPage():r==='races'?racesPage():r==='sources'?sourcesPage():dataPage();bindPageEvents();setResultsStatus();hydrateGeoMaps();root.focus({preventScroll:true});
+    setActiveNav();renderStickyChamberControl();const r=route(),root=qs('#page-root');root.innerHTML=r==='dashboard'?dashboardPage():r==='map'?mapPage():r==='races'?racesPage():r==='sources'?sourcesPage():dataPage();bindPageEvents();setResultsStatus();hydrateGeoMaps();root.focus({preventScroll:true});
   }
 
   function bindPageEvents(){
