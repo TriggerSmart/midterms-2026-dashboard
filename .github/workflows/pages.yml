@@ -1,0 +1,74 @@
+name: Deploy Midterms Command Center to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+  schedule:
+    # Daily pre-election refresh for maps/source health, then frequent election-night mirrors.
+    - cron: '17 12 26-31 10 *'
+    - cron: '17 12 1-2 11 *'
+    - cron: '2-57/5 * 3-5 11 *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Gate scheduled refreshes to 2026
+        id: gate
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" && "$(date -u +%Y)" != "2026" ]]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Refresh public election data and map geometry
+        if: steps.gate.outputs.run == 'true'
+        run: node scripts/update-live-data.js --output-dir assets/data
+
+      - name: Run tests
+        if: steps.gate.outputs.run == 'true'
+        run: npm test
+
+      - name: Build static Pages artifact
+        if: steps.gate.outputs.run == 'true'
+        run: node scripts/build-pages.js
+
+      - name: Configure Pages
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        if: steps.gate.outputs.run == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
